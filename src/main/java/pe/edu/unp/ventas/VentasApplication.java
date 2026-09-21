@@ -7,19 +7,24 @@ import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import pe.edu.unp.ventas.database.DatabaseManager;
+import pe.edu.unp.ventas.model.Rol;
 import pe.edu.unp.ventas.model.Usuario;
 import pe.edu.unp.ventas.repository.ProductoRepository;
 import pe.edu.unp.ventas.repository.UsuarioRepository;
+import pe.edu.unp.ventas.repository.VentaRepository;
 import pe.edu.unp.ventas.repository.sqlite.SqliteProductoRepository;
 import pe.edu.unp.ventas.repository.sqlite.SqliteUsuarioRepository;
+import pe.edu.unp.ventas.repository.sqlite.SqliteVentaRepository;
 import pe.edu.unp.ventas.service.*;
 import pe.edu.unp.ventas.ui.ProductoPane;
 import pe.edu.unp.ventas.ui.UsuarioPane;
+import pe.edu.unp.ventas.ui.VentaPane;
 
 public class VentasApplication extends Application {
     private AuthService authService;
     private UsuarioService usuarioService;
     private ProductoService productoService;
+    private VentaService ventaService;
 
     @Override
     public void start(Stage stage) {
@@ -33,10 +38,12 @@ public class VentasApplication extends Application {
 
         UsuarioRepository usuarioRepository = new SqliteUsuarioRepository(database);
         ProductoRepository productoRepository = new SqliteProductoRepository(database);
+        VentaRepository ventaRepository = new SqliteVentaRepository(database);
         PasswordHasher passwordHasher = new PasswordHasher();
 
         usuarioService = new UsuarioService(usuarioRepository, passwordHasher);
         productoService = new ProductoService(productoRepository);
+        ventaService = new VentaService(ventaRepository, productoRepository);
         authService = new AuthService(usuarioRepository, passwordHasher);
 
         new BootstrapService(usuarioRepository, usuarioService).crearAdministradorInicial();
@@ -60,7 +67,7 @@ public class VentasApplication extends Application {
         });
 
         VBox root = new VBox(10,
-                new Label("Sistema académico de ventas - v0.1"),
+                new Label("Sistema académico de ventas - v0.2"),
                 username,
                 password,
                 ingresar,
@@ -75,19 +82,33 @@ public class VentasApplication extends Application {
 
     private void mostrarPrincipal(Stage stage, Usuario usuario) {
         TabPane tabs = new TabPane();
-        tabs.getTabs().add(new Tab("Usuarios", new UsuarioPane(usuarioService)));
-        tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService)));
+
+        if (usuario.getRol() == Rol.ADMINISTRADOR) {
+            tabs.getTabs().add(new Tab("Usuarios", new UsuarioPane(usuarioService)));
+            tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService)));
+        }
+
+        if (usuario.getRol() == Rol.VENDEDOR) {
+            tabs.getTabs().add(new Tab("Ventas", new VentaPane(ventaService, productoService, usuario)));
+            tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService)));
+        }
+
         tabs.getTabs().forEach(tab -> tab.setClosable(false));
 
+        Button cerrarSesion = new Button("Cerrar sesión");
+        cerrarSesion.setOnAction(e -> mostrarLogin(stage));
+
         VBox root = new VBox(
+                8,
                 new Label("Sesión: " + usuario.getNombre() + " (" + usuario.getRol() + ")"),
+                cerrarSesion,
                 tabs
         );
         root.setPadding(new Insets(10));
         VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
 
-        stage.setTitle("Ventas - v0.1");
-        stage.setScene(new Scene(root, 900, 600));
+        stage.setTitle("Ventas - v0.2");
+        stage.setScene(new Scene(root, 1000, 650));
         stage.centerOnScreen();
     }
 
