@@ -21,6 +21,16 @@ CREATE TABLE IF NOT EXISTS venta (
     fecha TEXT NOT NULL,
     vendedor_id INTEGER NOT NULL,
     subtotal_centimos INTEGER NOT NULL DEFAULT 0 CHECK (subtotal_centimos >= 0),
+    tipo_descuento TEXT NOT NULL DEFAULT 'SIN_DESCUENTO'
+        CHECK (
+            tipo_descuento IN (
+                'SIN_DESCUENTO',
+                'CLIENTE_FRECUENTE',
+                'PROMOCION',
+                'EMPLEADO',
+                'CAMPANIA_ESPECIAL'
+            )
+        ),
     descuento_centimos INTEGER NOT NULL DEFAULT 0,
     total_centimos INTEGER NOT NULL DEFAULT 0,
     estado TEXT NOT NULL DEFAULT 'BORRADOR'
