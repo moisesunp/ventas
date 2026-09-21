@@ -9,6 +9,22 @@ Aplicación académica de escritorio para estudiar la evolución de un sistema p
 - JavaFX
 - SQLite
 
+## Versiones disponibles
+
+Las versiones docentes se conservan en ramas estables para que puedan consultarse y descargarse aunque `main` continúe evolucionando.
+
+| Versión | Contenido | Código | Descarga ZIP |
+|---|---|---|---|
+| v0.1 | Usuarios y productos | [version/v0.1](https://github.com/moisesunp/ventas/tree/version/v0.1) | [Descargar v0.1](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.1.zip) |
+| v0.2 | Usuarios, productos y ventas | [version/v0.2](https://github.com/moisesunp/ventas/tree/version/v0.2) | [Descargar v0.2](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.2.zip) |
+
+Commits de referencia:
+
+- v0.1: `9221847ce6dfb7d1f52d21d3834ee6da6e77f56a`
+- v0.2: `027d0af1dca6a1869dd300df77c21f1dbcd825bc`
+
+> Nota: estas ramas cumplen por ahora la función de versiones congeladas. Cuando el repositorio tenga tags/releases de GitHub, se mantendrán apuntando a estos mismos commits.
+
 ## v0.2 — Usuarios, productos y ventas
 
 Esta versión incorpora el flujo comercial básico, pero todavía **no utiliza patrones GoF**. El objetivo académico es disponer primero de una implementación convencional y funcional, de modo que los problemas de crecimiento del código puedan observarse antes de introducir Strategy, Factory, Observer y State.
