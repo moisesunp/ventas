@@ -1,0 +1,97 @@
+package pe.edu.unp.ventas;
+
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+import pe.edu.unp.ventas.database.DatabaseManager;
+import pe.edu.unp.ventas.model.Usuario;
+import pe.edu.unp.ventas.repository.ProductoRepository;
+import pe.edu.unp.ventas.repository.UsuarioRepository;
+import pe.edu.unp.ventas.repository.sqlite.SqliteProductoRepository;
+import pe.edu.unp.ventas.repository.sqlite.SqliteUsuarioRepository;
+import pe.edu.unp.ventas.service.*;
+import pe.edu.unp.ventas.ui.ProductoPane;
+import pe.edu.unp.ventas.ui.UsuarioPane;
+
+public class VentasApplication extends Application {
+    private AuthService authService;
+    private UsuarioService usuarioService;
+    private ProductoService productoService;
+
+    @Override
+    public void start(Stage stage) {
+        configurarAplicacion();
+        mostrarLogin(stage);
+    }
+
+    private void configurarAplicacion() {
+        DatabaseManager database = new DatabaseManager("ventas.db");
+        database.inicializarBaseDatos();
+
+        UsuarioRepository usuarioRepository = new SqliteUsuarioRepository(database);
+        ProductoRepository productoRepository = new SqliteProductoRepository(database);
+        PasswordHasher passwordHasher = new PasswordHasher();
+
+        usuarioService = new UsuarioService(usuarioRepository, passwordHasher);
+        productoService = new ProductoService(productoRepository);
+        authService = new AuthService(usuarioRepository, passwordHasher);
+
+        new BootstrapService(usuarioRepository, usuarioService).crearAdministradorInicial();
+    }
+
+    private void mostrarLogin(Stage stage) {
+        TextField username = new TextField();
+        username.setPromptText("Usuario");
+        PasswordField password = new PasswordField();
+        password.setPromptText("Contraseña");
+        Label mensaje = new Label();
+        Button ingresar = new Button("Ingresar");
+
+        ingresar.setOnAction(e -> {
+            try {
+                Usuario usuario = authService.autenticar(username.getText(), password.getText());
+                mostrarPrincipal(stage, usuario);
+            } catch (RuntimeException ex) {
+                mensaje.setText(ex.getMessage());
+            }
+        });
+
+        VBox root = new VBox(10,
+                new Label("Sistema académico de ventas - v0.1"),
+                username,
+                password,
+                ingresar,
+                mensaje,
+                new Label("Acceso inicial: admin / admin123")
+        );
+        root.setPadding(new Insets(24));
+        stage.setTitle("Ventas - Iniciar sesión");
+        stage.setScene(new Scene(root, 360, 260));
+        stage.show();
+    }
+
+    private void mostrarPrincipal(Stage stage, Usuario usuario) {
+        TabPane tabs = new TabPane();
+        tabs.getTabs().add(new Tab("Usuarios", new UsuarioPane(usuarioService)));
+        tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService)));
+        tabs.getTabs().forEach(tab -> tab.setClosable(false));
+
+        VBox root = new VBox(
+                new Label("Sesión: " + usuario.getNombre() + " (" + usuario.getRol() + ")"),
+                tabs
+        );
+        root.setPadding(new Insets(10));
+        VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
+
+        stage.setTitle("Ventas - v0.1");
+        stage.setScene(new Scene(root, 900, 600));
+        stage.centerOnScreen();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
