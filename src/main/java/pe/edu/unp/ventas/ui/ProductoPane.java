@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 
 public class ProductoPane extends VBox {
     private final ProductoService productoService;
+    private final boolean editable;
     private final TableView<Producto> tabla = new TableView<>();
     private final TextField codigo = new TextField();
     private final TextField nombre = new TextField();
@@ -20,10 +21,22 @@ public class ProductoPane extends VBox {
     private final Label mensaje = new Label();
 
     public ProductoPane(ProductoService productoService) {
+        this(productoService, true);
+    }
+
+    public ProductoPane(ProductoService productoService, boolean editable) {
         this.productoService = productoService;
+        this.editable = editable;
         setPadding(new Insets(12));
         setSpacing(10);
-        getChildren().addAll(crearFormulario(), crearTabla(), mensaje);
+
+        if (editable) {
+            getChildren().add(crearFormulario());
+        } else {
+            getChildren().add(new Label("Consulta de productos"));
+        }
+
+        getChildren().addAll(crearTabla(), mensaje);
         refrescar();
     }
 
@@ -45,20 +58,29 @@ public class ProductoPane extends VBox {
     private TableView<Producto> crearTabla() {
         TableColumn<Producto, String> codigoCol = new TableColumn<>("Código");
         codigoCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().getCodigo()));
+
         TableColumn<Producto, String> nombreCol = new TableColumn<>("Nombre");
         nombreCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().getNombre()));
+
         TableColumn<Producto, String> precioCol = new TableColumn<>("Precio");
         precioCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty("S/ " + c.getValue().getPrecio()));
+
         TableColumn<Producto, Number> stockCol = new TableColumn<>("Stock");
         stockCol.setCellValueFactory(c -> new javafx.beans.property.SimpleIntegerProperty(c.getValue().getStock()));
+
         TableColumn<Producto, String> activoCol = new TableColumn<>("Activo");
         activoCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().isActivo() ? "Sí" : "No"));
+
         tabla.getColumns().addAll(codigoCol, nombreCol, precioCol, stockCol, activoCol);
         tabla.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         return tabla;
     }
 
     private void registrar() {
+        if (!editable) {
+            throw new IllegalStateException("Modo de solo consulta");
+        }
+
         try {
             productoService.registrar(
                     codigo.getText(),
@@ -78,20 +100,28 @@ public class ProductoPane extends VBox {
     }
 
     private void alternarActivo() {
+        if (!editable) {
+            throw new IllegalStateException("Modo de solo consulta");
+        }
+
         Producto seleccionado = tabla.getSelectionModel().getSelectedItem();
         if (seleccionado == null) {
             mensaje.setText("Seleccione un producto.");
             return;
         }
+
         if (seleccionado.isActivo()) {
             productoService.desactivar(seleccionado.getId());
         } else {
             productoService.activar(seleccionado.getId());
         }
+
         refrescar();
     }
 
     private void refrescar() {
-        tabla.setItems(FXCollections.observableArrayList(productoService.listar()));
+        tabla.setItems(FXCollections.observableArrayList(
+                editable ? productoService.listar() : productoService.listarActivos()
+        ));
     }
 }
