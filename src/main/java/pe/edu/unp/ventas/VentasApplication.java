@@ -85,12 +85,12 @@ public class VentasApplication extends Application {
 
         if (usuario.getRol() == Rol.ADMINISTRADOR) {
             tabs.getTabs().add(new Tab("Usuarios", new UsuarioPane(usuarioService)));
-            tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService)));
+            tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService, true)));
         }
 
         if (usuario.getRol() == Rol.VENDEDOR) {
             tabs.getTabs().add(new Tab("Ventas", new VentaPane(ventaService, productoService, usuario)));
-            tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService)));
+            tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService, false)));
         }
 
         tabs.getTabs().forEach(tab -> tab.setClosable(false));
