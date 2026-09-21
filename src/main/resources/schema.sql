@@ -16,6 +16,68 @@ CREATE TABLE IF NOT EXISTS producto (
     activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1))
 );
 
+CREATE TABLE IF NOT EXISTS venta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    vendedor_id INTEGER NOT NULL,
+    subtotal_centimos INTEGER NOT NULL DEFAULT 0 CHECK (subtotal_centimos >= 0),
+    descuento_centimos INTEGER NOT NULL DEFAULT 0,
+    total_centimos INTEGER NOT NULL DEFAULT 0,
+    estado TEXT NOT NULL DEFAULT 'BORRADOR'
+        CHECK (estado IN ('BORRADOR', 'CONFIRMADA', 'ANULADA')),
+
+    CONSTRAINT fk_venta_vendedor
+        FOREIGN KEY (vendedor_id)
+        REFERENCES usuario(id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_venta_descuento
+        CHECK (
+            descuento_centimos >= 0
+            AND descuento_centimos <= subtotal_centimos
+        ),
+
+    CONSTRAINT ck_venta_total
+        CHECK (
+            total_centimos >= 0
+            AND total_centimos = subtotal_centimos - descuento_centimos
+        )
+);
+
+CREATE TABLE IF NOT EXISTS detalle_venta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id INTEGER NOT NULL,
+    producto_id INTEGER NOT NULL,
+    cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+    precio_unitario_centimos INTEGER NOT NULL CHECK (precio_unitario_centimos >= 0),
+    subtotal_centimos INTEGER NOT NULL,
+
+    CONSTRAINT fk_detalle_venta
+        FOREIGN KEY (venta_id)
+        REFERENCES venta(id)
+        ON UPDATE RESTRICT
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_detalle_producto
+        FOREIGN KEY (producto_id)
+        REFERENCES producto(id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_detalle_subtotal
+        CHECK (subtotal_centimos = cantidad * precio_unitario_centimos),
+
+    CONSTRAINT uq_detalle_producto_venta
+        UNIQUE (venta_id, producto_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_usuario_activo ON usuario(activo);
 CREATE INDEX IF NOT EXISTS idx_producto_activo ON producto(activo);
 CREATE INDEX IF NOT EXISTS idx_producto_nombre ON producto(nombre);
+CREATE INDEX IF NOT EXISTS idx_venta_vendedor ON venta(vendedor_id);
+CREATE INDEX IF NOT EXISTS idx_venta_fecha ON venta(fecha);
+CREATE INDEX IF NOT EXISTS idx_venta_estado ON venta(estado);
+CREATE INDEX IF NOT EXISTS idx_venta_vendedor_fecha ON venta(vendedor_id, fecha);
+CREATE INDEX IF NOT EXISTS idx_detalle_venta ON detalle_venta(venta_id);
+CREATE INDEX IF NOT EXISTS idx_detalle_producto ON detalle_venta(producto_id);
