@@ -17,69 +17,60 @@ Las versiones docentes se conservan en ramas estables para que puedan consultars
 |---|---|---|---|
 | v0.1 | Usuarios y productos | [version/v0.1](https://github.com/moisesunp/ventas/tree/version/v0.1) | [Descargar v0.1](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.1.zip) |
 | v0.2 | Usuarios, productos y ventas | [version/v0.2](https://github.com/moisesunp/ventas/tree/version/v0.2) | [Descargar v0.2](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.2.zip) |
+| v0.3 | Descuentos con condicionales | [version/v0.3](https://github.com/moisesunp/ventas/tree/version/v0.3) | [Descargar v0.3](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.3.zip) |
 
-Commits de referencia:
+## v0.3 — Descuentos con condicionales
 
-- v0.1: `9221847ce6dfb7d1f52d21d3834ee6da6e77f56a`
-- v0.2: `027d0af1dca6a1869dd300df77c21f1dbcd825bc`
+Esta versión incorpora varios tipos de descuento, pero todavía **no utiliza Strategy**. El objetivo académico es hacer visible el crecimiento de la lógica condicional dentro de `VentaService`.
 
-> Nota: estas ramas cumplen por ahora la función de versiones congeladas. Cuando el repositorio tenga tags/releases de GitHub, se mantendrán apuntando a estos mismos commits.
+### Tipos de descuento
 
-## v0.2 — Usuarios, productos y ventas
+- `SIN_DESCUENTO`: 0 %
+- `CLIENTE_FRECUENTE`: 5 %
+- `PROMOCION`: 10 %
+- `EMPLEADO`: 15 %
+- `CAMPANIA_ESPECIAL`: 20 %
 
-Esta versión incorpora el flujo comercial básico, pero todavía **no utiliza patrones GoF**. El objetivo académico es disponer primero de una implementación convencional y funcional, de modo que los problemas de crecimiento del código puedan observarse antes de introducir Strategy, Factory, Observer y State.
+### Qué cambia respecto de v0.2
 
-### Funcionalidad actual
+- se agrega `TipoDescuento`;
+- `Venta` conserva el tipo de descuento aplicado;
+- `VentaService` decide el porcentaje mediante una cadena `if / else if`;
+- el descuento se recalcula cuando cambia el contenido de la venta;
+- SQLite persiste `tipo_descuento`;
+- existe una migración automática para bases creadas con v0.2;
+- JavaFX reemplaza el campo manual de porcentaje por un selector de tipo.
 
-**Administrador**
-- iniciar sesión;
-- registrar usuarios;
-- activar y desactivar usuarios;
-- crear usuarios con rol `VENDEDOR`;
-- registrar productos;
-- consultar productos;
-- activar y desactivar productos.
+### Problema didáctico visible
 
-**Vendedor**
-- iniciar sesión;
-- consultar productos activos;
-- crear una venta;
-- agregar y quitar productos;
-- aplicar un descuento porcentual simple;
-- consultar subtotal, descuento y total;
-- confirmar una venta.
+```text
+VentaService
+   │
+   ├── if SIN_DESCUENTO
+   ├── else if CLIENTE_FRECUENTE
+   ├── else if PROMOCION
+   ├── else if EMPLEADO
+   └── else if CAMPANIA_ESPECIAL
+```
 
-### Reglas principales
-
-- una venta nueva comienza en `BORRADOR`;
-- solo un usuario activo con rol `VENDEDOR` puede registrar ventas;
-- solo productos activos pueden agregarse;
-- la cantidad debe ser mayor que cero;
-- debe existir stock suficiente;
-- un producto aparece una sola vez por venta;
-- el precio unitario queda congelado en el detalle;
-- el descuento no puede superar el subtotal;
-- confirmar la venta descuenta stock;
-- venta, detalles y actualización de stock se ejecutan dentro de una transacción SQLite;
-- una venta confirmada no puede modificarse;
-- el modelo ya contempla `ANULADA` y reposición de stock desde el servicio/repositorio.
+La implementación funciona, pero cada nuevo tipo obliga a modificar `VentaService`. Este será el problema que resolveremos en v0.4 mediante Strategy.
 
 ### Acceso inicial
-
-En la primera ejecución se crea automáticamente:
 
 ```text
 usuario: admin
 contraseña: admin123
 ```
 
-Para probar ventas:
+Para probar descuentos:
 1. ingresar como administrador;
-2. registrar al menos un producto con stock;
-3. registrar un usuario con rol `VENDEDOR`;
-4. cerrar sesión;
-5. ingresar con el vendedor;
-6. abrir la pestaña **Ventas**.
+2. registrar productos con stock;
+3. crear un usuario con rol `VENDEDOR`;
+4. cerrar sesión e ingresar con ese vendedor;
+5. crear una venta;
+6. seleccionar un tipo de descuento;
+7. aplicar el descuento;
+8. confirmar la venta.
 
 ### Ejecutar
 
@@ -87,39 +78,11 @@ Para probar ventas:
 mvn clean javafx:run
 ```
 
-La base local `ventas.db` se crea en el directorio desde el que se ejecuta la aplicación y no se versiona.
-
-## Estructura
-
-```text
-src/main/java/pe/edu/unp/ventas/
-├── database/
-├── model/
-│   ├── Usuario
-│   ├── Producto
-│   ├── Venta
-│   ├── DetalleVenta
-│   ├── Rol
-│   └── EstadoVenta
-├── repository/
-│   └── sqlite/
-├── service/
-└── ui/
-```
-
-El flujo general sigue siendo:
-
-```text
-JavaFX → Service → Repository → SQLite
-             ↓
-           Modelo
-```
-
 ## Evolución didáctica prevista
 
 - v0.1: usuarios y productos;
-- **v0.2: venta y detalle de venta;**
-- v0.3: crecimiento deliberado de condicionales;
+- v0.2: venta y detalle de venta;
+- **v0.3: descuentos con condicionales;**
 - v0.4: Strategy;
 - v0.5: Factory;
 - v0.6: confirmación con responsabilidades crecientes;
