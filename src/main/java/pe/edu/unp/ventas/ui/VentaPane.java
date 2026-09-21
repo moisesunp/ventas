@@ -11,12 +11,11 @@ import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
 import pe.edu.unp.ventas.model.DetalleVenta;
 import pe.edu.unp.ventas.model.Producto;
+import pe.edu.unp.ventas.model.TipoDescuento;
 import pe.edu.unp.ventas.model.Usuario;
 import pe.edu.unp.ventas.model.Venta;
 import pe.edu.unp.ventas.service.ProductoService;
 import pe.edu.unp.ventas.service.VentaService;
-
-import java.math.BigDecimal;
 
 public class VentaPane extends VBox {
     private final VentaService ventaService;
@@ -26,7 +25,8 @@ public class VentaPane extends VBox {
     private Venta ventaActual;
     private final ComboBox<Producto> producto = new ComboBox<>();
     private final Spinner<Integer> cantidad = new Spinner<>(1, 999, 1);
-    private final TextField descuento = new TextField("0");
+    private final ComboBox<TipoDescuento> tipoDescuento =
+            new ComboBox<>(FXCollections.observableArrayList(TipoDescuento.values()));
     private final TableView<DetalleVenta> tabla = new TableView<>();
     private final Label subtotal = new Label();
     private final Label descuentoMonto = new Label();
@@ -42,6 +42,8 @@ public class VentaPane extends VBox {
         setSpacing(10);
         configurarProductoCombo();
         configurarTabla();
+        tipoDescuento.setValue(TipoDescuento.SIN_DESCUENTO);
+
         getChildren().addAll(
                 new Label("Nueva venta"),
                 crearControles(),
@@ -50,6 +52,7 @@ public class VentaPane extends VBox {
                 crearAcciones(),
                 mensaje
         );
+
         nuevaVenta();
     }
 
@@ -91,6 +94,7 @@ public class VentaPane extends VBox {
         grid.setHgap(8);
         grid.setVgap(8);
         producto.setPrefWidth(360);
+        tipoDescuento.setPrefWidth(220);
 
         Button agregar = new Button("Agregar");
         agregar.setOnAction(e -> agregarProducto());
@@ -102,17 +106,18 @@ public class VentaPane extends VBox {
         aplicar.setOnAction(e -> aplicarDescuento());
 
         grid.addRow(0, new Label("Producto:"), producto, new Label("Cantidad:"), cantidad, agregar);
-        grid.addRow(1, new Label("Descuento %:"), descuento, aplicar, quitar);
+        grid.addRow(1, new Label("Tipo descuento:"), tipoDescuento, aplicar, quitar);
+
         return grid;
     }
 
     private HBox crearTotales() {
-        HBox box = new HBox(25,
+        return new HBox(
+                25,
                 new Label("Subtotal:"), subtotal,
                 new Label("Descuento:"), descuentoMonto,
                 new Label("Total:"), total
         );
-        return box;
     }
 
     private HBox crearAcciones() {
@@ -129,11 +134,13 @@ public class VentaPane extends VBox {
         try {
             ventaActual = ventaService.crearVenta(vendedor);
             producto.setItems(FXCollections.observableArrayList(productoService.listarActivos()));
+
             if (!producto.getItems().isEmpty()) {
                 producto.getSelectionModel().selectFirst();
             }
+
             cantidad.getValueFactory().setValue(1);
-            descuento.setText("0");
+            tipoDescuento.setValue(TipoDescuento.SIN_DESCUENTO);
             mensaje.setText("");
             refrescar();
         } catch (RuntimeException ex) {
@@ -143,12 +150,18 @@ public class VentaPane extends VBox {
 
     private void agregarProducto() {
         Producto seleccionado = producto.getValue();
+
         if (seleccionado == null) {
             mensaje.setText("Seleccione un producto.");
             return;
         }
+
         try {
-            ventaService.agregarProducto(ventaActual, seleccionado.getId(), cantidad.getValue());
+            ventaService.agregarProducto(
+                    ventaActual,
+                    seleccionado.getId(),
+                    cantidad.getValue()
+            );
             mensaje.setText("Producto agregado.");
             refrescar();
         } catch (RuntimeException ex) {
@@ -158,12 +171,17 @@ public class VentaPane extends VBox {
 
     private void quitarProducto() {
         DetalleVenta seleccionado = tabla.getSelectionModel().getSelectedItem();
+
         if (seleccionado == null) {
             mensaje.setText("Seleccione un detalle.");
             return;
         }
+
         try {
-            ventaService.eliminarProducto(ventaActual, seleccionado.getProducto().getId());
+            ventaService.eliminarProducto(
+                    ventaActual,
+                    seleccionado.getProducto().getId()
+            );
             refrescar();
         } catch (RuntimeException ex) {
             mensaje.setText(ex.getMessage());
@@ -172,8 +190,11 @@ public class VentaPane extends VBox {
 
     private void aplicarDescuento() {
         try {
-            ventaService.aplicarDescuento(ventaActual, new BigDecimal(descuento.getText()));
-            mensaje.setText("Descuento aplicado.");
+            ventaService.aplicarDescuento(
+                    ventaActual,
+                    tipoDescuento.getValue()
+            );
+            mensaje.setText("Descuento " + ventaActual.getTipoDescuento() + " aplicado.");
             refrescar();
         } catch (RuntimeException ex) {
             mensaje.setText("Descuento inválido: " + ex.getMessage());
@@ -183,7 +204,12 @@ public class VentaPane extends VBox {
     private void confirmarVenta() {
         try {
             ventaService.confirmarVenta(ventaActual);
-            mensaje.setText("Venta N.° " + ventaActual.getId() + " confirmada correctamente.");
+            mensaje.setText(
+                    "Venta N.° " + ventaActual.getId()
+                            + " confirmada con "
+                            + ventaActual.getTipoDescuento()
+                            + "."
+            );
             refrescar();
             producto.setItems(FXCollections.observableArrayList(productoService.listarActivos()));
         } catch (RuntimeException ex) {
