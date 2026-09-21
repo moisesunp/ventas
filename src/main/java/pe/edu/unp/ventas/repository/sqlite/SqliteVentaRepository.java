@@ -26,6 +26,7 @@ public class SqliteVentaRepository implements VentaRepository {
 
         try (Connection connection = database.getConnection()) {
             connection.setAutoCommit(false);
+
             try {
                 descontarStock(connection, venta);
                 long ventaId = insertarVenta(connection, venta);
@@ -39,6 +40,7 @@ public class SqliteVentaRepository implements VentaRepository {
             } finally {
                 connection.setAutoCommit(true);
             }
+
         } catch (SQLException e) {
             throw new IllegalStateException("No se pudo confirmar la venta", e);
         }
@@ -52,10 +54,14 @@ public class SqliteVentaRepository implements VentaRepository {
 
         try (Connection connection = database.getConnection()) {
             connection.setAutoCommit(false);
+
             try {
-                String cambiarEstado = "UPDATE venta SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'";
+                String cambiarEstado =
+                        "UPDATE venta SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'";
+
                 try (PreparedStatement ps = connection.prepareStatement(cambiarEstado)) {
                     ps.setLong(1, venta.getId());
+
                     if (ps.executeUpdate() != 1) {
                         throw new IllegalStateException("La venta ya no se encuentra confirmada");
                     }
@@ -69,21 +75,27 @@ public class SqliteVentaRepository implements VentaRepository {
                             WHERE venta_id = ? AND producto_id = producto.id
                         )
                         WHERE id IN (
-                            SELECT producto_id FROM detalle_venta WHERE venta_id = ?
+                            SELECT producto_id
+                            FROM detalle_venta
+                            WHERE venta_id = ?
                         )
                         """;
+
                 try (PreparedStatement ps = connection.prepareStatement(reponer)) {
                     ps.setLong(1, venta.getId());
                     ps.setLong(2, venta.getId());
                     ps.executeUpdate();
                 }
+
                 connection.commit();
+
             } catch (Exception e) {
                 connection.rollback();
                 throw e;
             } finally {
                 connection.setAutoCommit(true);
             }
+
         } catch (SQLException e) {
             throw new IllegalStateException("No se pudo anular la venta", e);
         }
@@ -92,12 +104,18 @@ public class SqliteVentaRepository implements VentaRepository {
     @Override
     public Optional<Venta> buscarPorId(Long id) {
         String sql = consultaBase() + " WHERE v.id=?";
+
         try (Connection connection = database.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
+
             ps.setLong(1, id);
+
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(mapearVenta(connection, rs)) : Optional.empty();
+                return rs.next()
+                        ? Optional.of(mapearVenta(connection, rs))
+                        : Optional.empty();
             }
+
         } catch (SQLException e) {
             throw new IllegalStateException("No se pudo buscar la venta", e);
         }
@@ -105,27 +123,38 @@ public class SqliteVentaRepository implements VentaRepository {
 
     @Override
     public List<Venta> listar() {
-        return listarConSql(consultaBase() + " ORDER BY v.fecha DESC", null);
+        return listarConSql(
+                consultaBase() + " ORDER BY v.fecha DESC",
+                null
+        );
     }
 
     @Override
     public List<Venta> listarPorVendedor(Long vendedorId) {
-        return listarConSql(consultaBase() + " WHERE v.vendedor_id=? ORDER BY v.fecha DESC", vendedorId);
+        return listarConSql(
+                consultaBase() + " WHERE v.vendedor_id=? ORDER BY v.fecha DESC",
+                vendedorId
+        );
     }
 
     private List<Venta> listarConSql(String sql, Long vendedorId) {
         List<Venta> ventas = new ArrayList<>();
+
         try (Connection connection = database.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
+
             if (vendedorId != null) {
                 ps.setLong(1, vendedorId);
             }
+
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     ventas.add(mapearVenta(connection, rs));
                 }
             }
+
             return ventas;
+
         } catch (SQLException e) {
             throw new IllegalStateException("No se pudieron listar las ventas", e);
         }
@@ -133,16 +162,29 @@ public class SqliteVentaRepository implements VentaRepository {
 
     private long insertarVenta(Connection connection, Venta venta) throws SQLException {
         String sql = """
-                INSERT INTO venta(fecha, vendedor_id, subtotal_centimos, descuento_centimos, total_centimos, estado)
-                VALUES (?, ?, ?, ?, ?, 'CONFIRMADA')
+                INSERT INTO venta(
+                    fecha,
+                    vendedor_id,
+                    subtotal_centimos,
+                    tipo_descuento,
+                    descuento_centimos,
+                    total_centimos,
+                    estado
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 'CONFIRMADA')
                 """;
-        try (PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+        try (PreparedStatement ps =
+                     connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
             ps.setString(1, venta.getFecha().toString());
             ps.setLong(2, venta.getVendedor().getId());
             ps.setLong(3, aCentimos(venta.getSubtotal()));
-            ps.setLong(4, aCentimos(venta.getDescuento()));
-            ps.setLong(5, aCentimos(venta.getTotal()));
+            ps.setString(4, venta.getTipoDescuento().name());
+            ps.setLong(5, aCentimos(venta.getDescuento()));
+            ps.setLong(6, aCentimos(venta.getTotal()));
             ps.executeUpdate();
+
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (!keys.next()) {
                     throw new SQLException("No se obtuvo el id de la venta");
@@ -152,12 +194,25 @@ public class SqliteVentaRepository implements VentaRepository {
         }
     }
 
-    private void insertarDetalles(Connection connection, long ventaId, List<DetalleVenta> detalles) throws SQLException {
+    private void insertarDetalles(
+            Connection connection,
+            long ventaId,
+            List<DetalleVenta> detalles
+    ) throws SQLException {
+
         String sql = """
-                INSERT INTO detalle_venta(venta_id, producto_id, cantidad, precio_unitario_centimos, subtotal_centimos)
+                INSERT INTO detalle_venta(
+                    venta_id,
+                    producto_id,
+                    cantidad,
+                    precio_unitario_centimos,
+                    subtotal_centimos
+                )
                 VALUES (?, ?, ?, ?, ?)
                 """;
+
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
+
             for (DetalleVenta detalle : detalles) {
                 ps.setLong(1, ventaId);
                 ps.setLong(2, detalle.getProducto().getId());
@@ -166,6 +221,7 @@ public class SqliteVentaRepository implements VentaRepository {
                 ps.setLong(5, aCentimos(detalle.getSubtotal()));
                 ps.addBatch();
             }
+
             ps.executeBatch();
         }
     }
@@ -176,14 +232,18 @@ public class SqliteVentaRepository implements VentaRepository {
                 SET stock = stock - ?
                 WHERE id = ? AND activo = 1 AND stock >= ?
                 """;
+
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
+
             for (DetalleVenta detalle : venta.getDetalles()) {
                 ps.setInt(1, detalle.getCantidad());
                 ps.setLong(2, detalle.getProducto().getId());
                 ps.setInt(3, detalle.getCantidad());
+
                 if (ps.executeUpdate() != 1) {
                     throw new IllegalStateException(
-                            "Stock insuficiente o producto inactivo: " + detalle.getProducto().getNombre()
+                            "Stock insuficiente o producto inactivo: "
+                                    + detalle.getProducto().getNombre()
                     );
                 }
             }
@@ -208,23 +268,39 @@ public class SqliteVentaRepository implements VentaRepository {
                 LocalDateTime.parse(rs.getString("v_fecha")),
                 vendedor,
                 detalles,
+                TipoDescuento.valueOf(rs.getString("v_tipo_descuento")),
                 desdeCentimos(rs.getLong("v_descuento")),
                 EstadoVenta.valueOf(rs.getString("v_estado"))
         );
     }
 
-    private List<DetalleVenta> cargarDetalles(Connection connection, long ventaId) throws SQLException {
+    private List<DetalleVenta> cargarDetalles(
+            Connection connection,
+            long ventaId
+    ) throws SQLException {
+
         String sql = """
-                SELECT d.id d_id, d.cantidad, d.precio_unitario_centimos,
-                       p.id p_id, p.codigo, p.nombre, p.precio_centimos, p.stock, p.activo
+                SELECT
+                    d.id d_id,
+                    d.cantidad,
+                    d.precio_unitario_centimos,
+                    p.id p_id,
+                    p.codigo,
+                    p.nombre,
+                    p.precio_centimos,
+                    p.stock,
+                    p.activo
                 FROM detalle_venta d
                 JOIN producto p ON p.id = d.producto_id
                 WHERE d.venta_id=?
                 ORDER BY d.id
                 """;
+
         List<DetalleVenta> detalles = new ArrayList<>();
+
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setLong(1, ventaId);
+
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Producto producto = new Producto(
@@ -235,23 +311,36 @@ public class SqliteVentaRepository implements VentaRepository {
                             rs.getInt("stock"),
                             rs.getInt("activo") == 1
                     );
-                    detalles.add(new DetalleVenta(
-                            rs.getLong("d_id"),
-                            producto,
-                            rs.getInt("cantidad"),
-                            desdeCentimos(rs.getLong("precio_unitario_centimos"))
-                    ));
+
+                    detalles.add(
+                            new DetalleVenta(
+                                    rs.getLong("d_id"),
+                                    producto,
+                                    rs.getInt("cantidad"),
+                                    desdeCentimos(rs.getLong("precio_unitario_centimos"))
+                            )
+                    );
                 }
             }
         }
+
         return detalles;
     }
 
     private String consultaBase() {
         return """
-                SELECT v.id v_id, v.fecha v_fecha, v.descuento_centimos v_descuento, v.estado v_estado,
-                       u.id u_id, u.nombre u_nombre, u.username u_username, u.password_hash u_password_hash,
-                       u.rol u_rol, u.activo u_activo
+                SELECT
+                    v.id v_id,
+                    v.fecha v_fecha,
+                    v.tipo_descuento v_tipo_descuento,
+                    v.descuento_centimos v_descuento,
+                    v.estado v_estado,
+                    u.id u_id,
+                    u.nombre u_nombre,
+                    u.username u_username,
+                    u.password_hash u_password_hash,
+                    u.rol u_rol,
+                    u.activo u_activo
                 FROM venta v
                 JOIN usuario u ON u.id = v.vendedor_id
                 """;
