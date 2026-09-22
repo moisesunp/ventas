@@ -2,8 +2,10 @@ package pe.edu.unp.ventas.service;
 
 import pe.edu.unp.ventas.model.*;
 import pe.edu.unp.ventas.pattern.factory.DescuentoStrategyFactory;
+import pe.edu.unp.ventas.pattern.observer.VentaConfirmadaPublisher;
 import pe.edu.unp.ventas.pattern.strategy.DescuentoStrategy;
-import pe.edu.unp.ventas.repository.*;
+import pe.edu.unp.ventas.repository.ProductoRepository;
+import pe.edu.unp.ventas.repository.VentaRepository;
 
 import java.util.List;
 
@@ -11,24 +13,18 @@ public class VentaService {
     private final VentaRepository ventaRepository;
     private final ProductoRepository productoRepository;
     private final DescuentoStrategyFactory descuentoFactory;
-    private final AuditoriaVentaRepository auditoriaRepository;
-    private final ComprobanteRepository comprobanteRepository;
-    private final NotificacionVentaRepository notificacionRepository;
+    private final VentaConfirmadaPublisher ventaConfirmadaPublisher;
 
     public VentaService(
             VentaRepository ventaRepository,
             ProductoRepository productoRepository,
             DescuentoStrategyFactory descuentoFactory,
-            AuditoriaVentaRepository auditoriaRepository,
-            ComprobanteRepository comprobanteRepository,
-            NotificacionVentaRepository notificacionRepository
+            VentaConfirmadaPublisher ventaConfirmadaPublisher
     ) {
         this.ventaRepository = ventaRepository;
         this.productoRepository = productoRepository;
         this.descuentoFactory = descuentoFactory;
-        this.auditoriaRepository = auditoriaRepository;
-        this.comprobanteRepository = comprobanteRepository;
-        this.notificacionRepository = notificacionRepository;
+        this.ventaConfirmadaPublisher = ventaConfirmadaPublisher;
     }
 
     public Venta crearVenta(Usuario vendedor) {
@@ -101,15 +97,7 @@ public class VentaService {
         ventaRepository.guardarConfirmada(venta);
         venta.confirmar();
 
-        auditoriaRepository.registrarConfirmacion(venta);
-
-        String numeroComprobante =
-                comprobanteRepository.generarComprobanteInterno(venta);
-
-        notificacionRepository.registrarConfirmacion(
-                venta,
-                numeroComprobante
-        );
+        ventaConfirmadaPublisher.publicar(venta);
 
         return venta;
     }
