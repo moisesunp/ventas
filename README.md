@@ -22,90 +22,117 @@ Las versiones docentes se conservan en ramas estables para que puedan consultars
 | v0.5 | Factory para creación de estrategias | [version/v0.5](https://github.com/moisesunp/ventas/tree/version/v0.5) | [Descargar v0.5](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.5.zip) |
 | v0.6 | Confirmación con consecuencias directas | [version/v0.6](https://github.com/moisesunp/ventas/tree/version/v0.6) | [Descargar v0.6](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.6.zip) |
 | v0.7 | Observer para venta confirmada | [version/v0.7](https://github.com/moisesunp/ventas/tree/version/v0.7) | [Descargar v0.7](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.7.zip) |
+| v0.8 | Lógica condicional por estado | [version/v0.8](https://github.com/moisesunp/ventas/tree/version/v0.8) | [Descargar v0.8](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.8.zip) |
 
-## v0.7 — Observer
+## v0.8 — Problema previo a State
 
-Esta versión refactoriza las consecuencias de una venta confirmada mediante el patrón **Observer**.
+Esta versión hace visible el crecimiento de las reglas que dependen del estado de la venta, pero todavía **no utiliza State**.
 
-### Problema observado en v0.6
+### Estados actuales
 
 ```text
-VentaService.confirmarVenta()
-        │
-        ├── registra auditoría
-        ├── genera comprobante
-        └── registra notificación
+BORRADOR
+CONFIRMADA
+ANULADA
 ```
 
-`VentaService` conocía directamente todas las reacciones posteriores a una confirmación.
+### Qué se añadió
 
-### Solución en v0.7
+- historial de ventas del vendedor;
+- posibilidad de anular una venta confirmada;
+- descripción distinta según el estado;
+- listado de acciones permitidas según el estado.
 
-Se incorpora un evento y un publicador:
+### Lógica condicional creciente
 
-```text
-VentaService
-     │
-     │ publicar(venta)
-     ▼
-VentaConfirmadaPublisher
-     │
-     ├── AuditoriaVentaObserver
-     ├── ComprobanteVentaObserver
-     └── NotificacionVentaObserver
+Ahora distintas operaciones deben preguntar repetidamente:
+
+```java
+if (estado == BORRADOR) {
+    ...
+} else if (estado == CONFIRMADA) {
+    ...
+} else if (estado == ANULADA) {
+    ...
+}
 ```
 
-Cada observador implementa el mismo contrato:
+Por ejemplo, `VentaService` decide:
 
 ```text
-VentaConfirmadaObserver
-        │
-        └── actualizar(VentaConfirmadaEvent)
+descripcionEstado()
+accionesDisponibles()
+anularVenta()
+validarBorrador()
 ```
 
-### Qué mejora
-
-- `VentaService` ya no conoce las reacciones concretas;
-- cada observador tiene una responsabilidad específica;
-- agregar una nueva reacción no exige modificar `confirmarVenta()`;
-- el evento `VentaConfirmadaEvent` representa explícitamente el acontecimiento;
-- las reacciones quedan desacopladas entre sí.
-
-### Comparación didáctica
-
-#### v0.6
+mientras `Venta` también contiene comprobaciones de estado para:
 
 ```text
-VentaService
-   ├── Auditoría
-   ├── Comprobante
-   └── Notificación
+agregar producto
+eliminar producto
+modificar cantidad
+aplicar descuento
+confirmar
+anular
 ```
 
-#### v0.7
+### Problema didáctico visible
+
+La lógica asociada a un mismo estado empieza a quedar repartida por distintos métodos y clases.
 
 ```text
-VentaService
+BORRADOR
+   ├── puede editar
+   ├── puede aplicar descuento
+   └── puede confirmar
+
+CONFIRMADA
+   ├── no puede editar
+   ├── puede consultarse
+   └── puede anularse
+
+ANULADA
+   ├── no puede editar
+   ├── no puede confirmarse
+   └── solo puede consultarse
+```
+
+Si aparece un nuevo estado, por ejemplo:
+
+```text
+PENDIENTE_PAGO
+EN_REVISION
+DEVUELTA
+```
+
+habría que localizar y modificar numerosos condicionales.
+
+Ese será el problema que resolveremos en **v0.9 con State**.
+
+## Comparación esperada
+
+### v0.8
+
+```text
+Venta / VentaService
       ↓
-VentaConfirmadaPublisher
+if estado == ...
       ↓
-notifica observers
-      │
-      ├── Auditoría
-      ├── Comprobante
-      └── Notificación
+decidir comportamiento
 ```
 
-Si mañana se agrega:
+### v0.9
 
 ```text
-PuntosClienteObserver
-EstadisticasObserver
-CorreoObserver
-AlmacenObserver
+Venta
+  ↓
+VentaState
+  │
+  ├── BorradorState
+  ├── ConfirmadaState
+  └── AnuladaState
 ```
-
-`VentaService.confirmarVenta()` no necesita conocerlos.
 
 ## Acceso inicial
 
@@ -128,8 +155,8 @@ mvn clean javafx:run
 - v0.4: Strategy;
 - v0.5: Factory;
 - v0.6: confirmación con responsabilidades crecientes;
-- **v0.7: Observer;**
-- v0.8: lógica creciente según estado;
+- v0.7: Observer;
+- **v0.8: lógica creciente según estado;**
 - v0.9: State;
 - v1.0: integración académica final.
 
