@@ -9,6 +9,7 @@ import javafx.stage.Stage;
 import pe.edu.unp.ventas.database.DatabaseManager;
 import pe.edu.unp.ventas.model.Rol;
 import pe.edu.unp.ventas.model.Usuario;
+import pe.edu.unp.ventas.pattern.factory.DescuentoStrategyFactory;
 import pe.edu.unp.ventas.repository.ProductoRepository;
 import pe.edu.unp.ventas.repository.UsuarioRepository;
 import pe.edu.unp.ventas.repository.VentaRepository;
@@ -43,7 +44,8 @@ public class VentasApplication extends Application {
 
         usuarioService = new UsuarioService(usuarioRepository, passwordHasher);
         productoService = new ProductoService(productoRepository);
-        ventaService = new VentaService(ventaRepository, productoRepository);
+        DescuentoStrategyFactory descuentoFactory = new DescuentoStrategyFactory();
+        ventaService = new VentaService(ventaRepository, productoRepository, descuentoFactory);
         authService = new AuthService(usuarioRepository, passwordHasher);
 
         new BootstrapService(usuarioRepository, usuarioService).crearAdministradorInicial();
@@ -67,7 +69,7 @@ public class VentasApplication extends Application {
         });
 
         VBox root = new VBox(10,
-                new Label("Sistema académico de ventas - v0.4"),
+                new Label("Sistema académico de ventas - v0.5"),
                 username,
                 password,
                 ingresar,
@@ -107,7 +109,7 @@ public class VentasApplication extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
 
-        stage.setTitle("Ventas - v0.4");
+        stage.setTitle("Ventas - v0.5");
         stage.setScene(new Scene(root, 1000, 650));
         stage.centerOnScreen();
     }
