@@ -19,101 +19,87 @@ Las versiones docentes se conservan en ramas estables para que puedan consultars
 | v0.2 | Usuarios, productos y ventas | [version/v0.2](https://github.com/moisesunp/ventas/tree/version/v0.2) | [Descargar v0.2](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.2.zip) |
 | v0.3 | Descuentos con condicionales | [version/v0.3](https://github.com/moisesunp/ventas/tree/version/v0.3) | [Descargar v0.3](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.3.zip) |
 | v0.4 | Strategy para descuentos | [version/v0.4](https://github.com/moisesunp/ventas/tree/version/v0.4) | [Descargar v0.4](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.4.zip) |
+| v0.5 | Factory para creación de estrategias | [version/v0.5](https://github.com/moisesunp/ventas/tree/version/v0.5) | [Descargar v0.5](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.5.zip) |
 
-## v0.4 — Strategy
+## v0.5 — Factory
 
-Esta versión refactoriza el cálculo de descuentos utilizando el patrón **Strategy**.
+Esta versión mantiene Strategy y añade una fábrica para centralizar la creación de las estrategias concretas de descuento.
 
-### Problema observado en v0.3
+### Problema observado en v0.4
 
 ```text
 VentaService
    │
-   ├── calcula 0 %
-   ├── calcula 5 %
-   ├── calcula 10 %
-   ├── calcula 15 %
-   └── calcula 20 %
+   ├── new SinDescuentoStrategy()
+   ├── new ClienteFrecuenteStrategy()
+   ├── new PromocionStrategy()
+   ├── new EmpleadoStrategy()
+   └── new CampaniaEspecialStrategy()
 ```
 
-`VentaService` conocía directamente todos los algoritmos de descuento.
+El algoritmo ya estaba encapsulado con Strategy, pero `VentaService` todavía conocía las clases concretas y decidía cuál instanciar.
 
-### Solución en v0.4
+### Solución en v0.5
 
 Se incorpora:
 
 ```text
-DescuentoStrategy
-      ▲
-      │
- ┌────┼───────────────┬───────────────┬───────────────┬──────────────────┐
- │    │               │               │               │
-Sin   Cliente         Promocion       Empleado        CampaniaEspecial
-Desc. Frecuente       Strategy        Strategy        Strategy
+DescuentoStrategyFactory
+          │
+          ├── SIN_DESCUENTO
+          ├── CLIENTE_FRECUENTE
+          ├── PROMOCION
+          ├── EMPLEADO
+          └── CAMPANIA_ESPECIAL
+          │
+          ▼
+   DescuentoStrategy
 ```
 
-Cada estrategia conoce únicamente su propio algoritmo.
-
-`VentaService` ahora hace:
+Ahora `VentaService` hace:
 
 ```text
 TipoDescuento
      ↓
-seleccionar estrategia
+DescuentoStrategyFactory.crear(tipo)
      ↓
-estrategia.calcular(subtotal)
+DescuentoStrategy
      ↓
-Venta.aplicarDescuento(...)
+calcular(subtotal)
 ```
 
 ### Qué mejora
 
-- el cálculo de cada descuento está encapsulado;
-- cada algoritmo puede cambiar independientemente;
-- `VentaService` deja de contener porcentajes;
-- las estrategias comparten el contrato `DescuentoStrategy`;
-- el comportamiento variable queda representado mediante polimorfismo.
+- `VentaService` ya no instancia estrategias concretas;
+- la decisión de creación queda centralizada;
+- Strategy sigue encapsulando el algoritmo;
+- Factory encapsula la creación;
+- las responsabilidades quedan más separadas.
 
-### Qué problema permanece
+### Comparación didáctica
 
-`VentaService` todavía decide qué implementación crear:
-
-```java
-if (tipo == SIN_DESCUENTO) {
-    return new SinDescuentoStrategy();
-} else if (tipo == CLIENTE_FRECUENTE) {
-    return new ClienteFrecuenteStrategy();
-} else if (...) {
-    ...
-}
-```
-
-Por tanto, al agregar una nueva estrategia todavía debemos modificar `VentaService`.
-
-Ese será el problema que resolveremos en **v0.5 con Factory**.
-
-## Comparación didáctica
-
-### v0.3
+#### v0.4
 
 ```text
 VentaService
    ↓
 if / else
    ↓
-calcula directamente el descuento
+new EstrategiaConcreta()
+   ↓
+calcular()
 ```
 
-### v0.4
+#### v0.5
 
 ```text
 VentaService
    ↓
-selecciona
+Factory
    ↓
 DescuentoStrategy
    ↓
-calcula el descuento
+calcular()
 ```
 
 ## Acceso inicial
@@ -134,8 +120,8 @@ mvn clean javafx:run
 - v0.1: usuarios y productos;
 - v0.2: venta y detalle de venta;
 - v0.3: descuentos con condicionales;
-- **v0.4: Strategy;**
-- v0.5: Factory;
+- v0.4: Strategy;
+- **v0.5: Factory;**
 - v0.6: confirmación con responsabilidades crecientes;
 - v0.7: Observer;
 - v0.8: lógica creciente según estado;
