@@ -18,72 +18,123 @@ Las versiones docentes se conservan en ramas estables para que puedan consultars
 | v0.1 | Usuarios y productos | [version/v0.1](https://github.com/moisesunp/ventas/tree/version/v0.1) | [Descargar v0.1](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.1.zip) |
 | v0.2 | Usuarios, productos y ventas | [version/v0.2](https://github.com/moisesunp/ventas/tree/version/v0.2) | [Descargar v0.2](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.2.zip) |
 | v0.3 | Descuentos con condicionales | [version/v0.3](https://github.com/moisesunp/ventas/tree/version/v0.3) | [Descargar v0.3](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.3.zip) |
+| v0.4 | Strategy para descuentos | [version/v0.4](https://github.com/moisesunp/ventas/tree/version/v0.4) | [Descargar v0.4](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.4.zip) |
 
-## v0.3 — Descuentos con condicionales
+## v0.4 — Strategy
 
-Esta versión incorpora varios tipos de descuento, pero todavía **no utiliza Strategy**. El objetivo académico es hacer visible el crecimiento de la lógica condicional dentro de `VentaService`.
+Esta versión refactoriza el cálculo de descuentos utilizando el patrón **Strategy**.
 
-### Tipos de descuento
-
-- `SIN_DESCUENTO`: 0 %
-- `CLIENTE_FRECUENTE`: 5 %
-- `PROMOCION`: 10 %
-- `EMPLEADO`: 15 %
-- `CAMPANIA_ESPECIAL`: 20 %
-
-### Qué cambia respecto de v0.2
-
-- se agrega `TipoDescuento`;
-- `Venta` conserva el tipo de descuento aplicado;
-- `VentaService` decide el porcentaje mediante una cadena `if / else if`;
-- el descuento se recalcula cuando cambia el contenido de la venta;
-- SQLite persiste `tipo_descuento`;
-- existe una migración automática para bases creadas con v0.2;
-- JavaFX reemplaza el campo manual de porcentaje por un selector de tipo.
-
-### Problema didáctico visible
+### Problema observado en v0.3
 
 ```text
 VentaService
    │
-   ├── if SIN_DESCUENTO
-   ├── else if CLIENTE_FRECUENTE
-   ├── else if PROMOCION
-   ├── else if EMPLEADO
-   └── else if CAMPANIA_ESPECIAL
+   ├── calcula 0 %
+   ├── calcula 5 %
+   ├── calcula 10 %
+   ├── calcula 15 %
+   └── calcula 20 %
 ```
 
-La implementación funciona, pero cada nuevo tipo obliga a modificar `VentaService`. Este será el problema que resolveremos en v0.4 mediante Strategy.
+`VentaService` conocía directamente todos los algoritmos de descuento.
 
-### Acceso inicial
+### Solución en v0.4
+
+Se incorpora:
+
+```text
+DescuentoStrategy
+      ▲
+      │
+ ┌────┼───────────────┬───────────────┬───────────────┬──────────────────┐
+ │    │               │               │               │
+Sin   Cliente         Promocion       Empleado        CampaniaEspecial
+Desc. Frecuente       Strategy        Strategy        Strategy
+```
+
+Cada estrategia conoce únicamente su propio algoritmo.
+
+`VentaService` ahora hace:
+
+```text
+TipoDescuento
+     ↓
+seleccionar estrategia
+     ↓
+estrategia.calcular(subtotal)
+     ↓
+Venta.aplicarDescuento(...)
+```
+
+### Qué mejora
+
+- el cálculo de cada descuento está encapsulado;
+- cada algoritmo puede cambiar independientemente;
+- `VentaService` deja de contener porcentajes;
+- las estrategias comparten el contrato `DescuentoStrategy`;
+- el comportamiento variable queda representado mediante polimorfismo.
+
+### Qué problema permanece
+
+`VentaService` todavía decide qué implementación crear:
+
+```java
+if (tipo == SIN_DESCUENTO) {
+    return new SinDescuentoStrategy();
+} else if (tipo == CLIENTE_FRECUENTE) {
+    return new ClienteFrecuenteStrategy();
+} else if (...) {
+    ...
+}
+```
+
+Por tanto, al agregar una nueva estrategia todavía debemos modificar `VentaService`.
+
+Ese será el problema que resolveremos en **v0.5 con Factory**.
+
+## Comparación didáctica
+
+### v0.3
+
+```text
+VentaService
+   ↓
+if / else
+   ↓
+calcula directamente el descuento
+```
+
+### v0.4
+
+```text
+VentaService
+   ↓
+selecciona
+   ↓
+DescuentoStrategy
+   ↓
+calcula el descuento
+```
+
+## Acceso inicial
 
 ```text
 usuario: admin
 contraseña: admin123
 ```
 
-Para probar descuentos:
-1. ingresar como administrador;
-2. registrar productos con stock;
-3. crear un usuario con rol `VENDEDOR`;
-4. cerrar sesión e ingresar con ese vendedor;
-5. crear una venta;
-6. seleccionar un tipo de descuento;
-7. aplicar el descuento;
-8. confirmar la venta.
-
-### Ejecutar
+## Ejecutar
 
 ```bash
 mvn clean javafx:run
 ```
 
-## Evolución didáctica prevista
+## Evolución didáctica
 
 - v0.1: usuarios y productos;
 - v0.2: venta y detalle de venta;
-- **v0.3: descuentos con condicionales;**
-- v0.4: Strategy;
+- v0.3: descuentos con condicionales;
+- **v0.4: Strategy;**
 - v0.5: Factory;
 - v0.6: confirmación con responsabilidades crecientes;
 - v0.7: Observer;
