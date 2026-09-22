@@ -23,96 +23,91 @@ Las versiones docentes se conservan en ramas estables para que puedan consultars
 | v0.6 | Confirmación con consecuencias directas | [version/v0.6](https://github.com/moisesunp/ventas/tree/version/v0.6) | [Descargar v0.6](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.6.zip) |
 | v0.7 | Observer para venta confirmada | [version/v0.7](https://github.com/moisesunp/ventas/tree/version/v0.7) | [Descargar v0.7](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.7.zip) |
 | v0.8 | Lógica condicional por estado | [version/v0.8](https://github.com/moisesunp/ventas/tree/version/v0.8) | [Descargar v0.8](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.8.zip) |
+| v0.9 | State para comportamiento de la venta | [version/v0.9](https://github.com/moisesunp/ventas/tree/version/v0.9) | [Descargar v0.9](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.9.zip) |
 
-## v0.8 — Problema previo a State
+## v0.9 — State
 
-Esta versión hace visible el crecimiento de las reglas que dependen del estado de la venta, pero todavía **no utiliza State**.
+Esta versión refactoriza el comportamiento dependiente del estado mediante el patrón **State**.
 
-### Estados actuales
+### Problema observado en v0.8
 
-```text
-BORRADOR
-CONFIRMADA
-ANULADA
-```
-
-### Qué se añadió
-
-- historial de ventas del vendedor;
-- posibilidad de anular una venta confirmada;
-- descripción distinta según el estado;
-- listado de acciones permitidas según el estado.
-
-### Lógica condicional creciente
-
-Ahora distintas operaciones deben preguntar repetidamente:
-
-```java
-if (estado == BORRADOR) {
-    ...
-} else if (estado == CONFIRMADA) {
-    ...
-} else if (estado == ANULADA) {
-    ...
-}
-```
-
-Por ejemplo, `VentaService` decide:
+La lógica de estado estaba repartida entre `Venta` y `VentaService`:
 
 ```text
-descripcionEstado()
+if BORRADOR ...
+else if CONFIRMADA ...
+else if ANULADA ...
+```
+
+y aparecía para modificar, confirmar, anular, describir el estado y decidir acciones disponibles.
+
+### Solución en v0.9
+
+Se introduce el contrato:
+
+```text
+VentaState
+   │
+   ├── BorradorState
+   ├── ConfirmadaState
+   └── AnuladaState
+```
+
+Cada estado conoce:
+
+```text
+validarModificable()
+validarConfirmacion()
+confirmar()
+validarAnulacion()
+anular()
+descripcion()
 accionesDisponibles()
-anularVenta()
-validarBorrador()
 ```
 
-mientras `Venta` también contiene comprobaciones de estado para:
+`Venta` mantiene una referencia al estado actual y delega el comportamiento:
 
 ```text
-agregar producto
-eliminar producto
-modificar cantidad
-aplicar descuento
-confirmar
-anular
+Venta
+  │
+  └── VentaState
+          │
+          ├── BorradorState
+          ├── ConfirmadaState
+          └── AnuladaState
 ```
 
-### Problema didáctico visible
-
-La lógica asociada a un mismo estado empieza a quedar repartida por distintos métodos y clases.
+### Transiciones
 
 ```text
 BORRADOR
-   ├── puede editar
-   ├── puede aplicar descuento
-   └── puede confirmar
-
+   │ confirmar
+   ▼
 CONFIRMADA
-   ├── no puede editar
-   ├── puede consultarse
-   └── puede anularse
-
+   │ anular
+   ▼
 ANULADA
-   ├── no puede editar
-   ├── no puede confirmarse
-   └── solo puede consultarse
 ```
 
-Si aparece un nuevo estado, por ejemplo:
+`ANULADA` es terminal.
+
+### Persistencia
+
+SQLite continúa almacenando:
 
 ```text
-PENDIENTE_PAGO
-EN_REVISION
-DEVUELTA
+BORRADOR
+CONFIRMADA
+ANULADA
 ```
 
-habría que localizar y modificar numerosos condicionales.
+Cuando una venta se recupera desde la base de datos, `VentaStateFactory` reconstruye el objeto de estado correspondiente.
 
-Ese será el problema que resolveremos en **v0.9 con State**.
+De esta forma, la persistencia sigue siendo sencilla mientras el dominio trabaja con objetos State.
 
-## Comparación esperada
+### Comparación didáctica
 
-### v0.8
+#### v0.8
 
 ```text
 Venta / VentaService
@@ -122,16 +117,31 @@ if estado == ...
 decidir comportamiento
 ```
 
-### v0.9
+#### v0.9
 
 ```text
 Venta
   ↓
-VentaState
-  │
-  ├── BorradorState
-  ├── ConfirmadaState
-  └── AnuladaState
+estado.actualizar comportamiento
+  ↓
+BorradorState / ConfirmadaState / AnuladaState
+```
+
+### Qué mejora
+
+- desaparecen los grandes bloques condicionales por estado del servicio;
+- cada estado concentra sus propias reglas;
+- las transiciones quedan explícitas;
+- agregar un nuevo estado requiere una nueva implementación de `VentaState`;
+- la interfaz puede consultar descripción y acciones desde el propio estado.
+
+## Patrones incorporados hasta v0.9
+
+```text
+Strategy  → algoritmo variable de descuento
+Factory   → creación de estrategias
+Observer  → reacciones a venta confirmada
+State     → comportamiento según estado
 ```
 
 ## Acceso inicial
@@ -156,8 +166,8 @@ mvn clean javafx:run
 - v0.5: Factory;
 - v0.6: confirmación con responsabilidades crecientes;
 - v0.7: Observer;
-- **v0.8: lógica creciente según estado;**
-- v0.9: State;
+- v0.8: lógica creciente según estado;
+- **v0.9: State;**
 - v1.0: integración académica final.
 
 La regla del proyecto es introducir cada patrón **después de que el problema sea visible**, no antes.
