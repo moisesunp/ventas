@@ -10,6 +10,10 @@ import pe.edu.unp.ventas.database.DatabaseManager;
 import pe.edu.unp.ventas.model.Rol;
 import pe.edu.unp.ventas.model.Usuario;
 import pe.edu.unp.ventas.pattern.factory.DescuentoStrategyFactory;
+import pe.edu.unp.ventas.pattern.observer.AuditoriaVentaObserver;
+import pe.edu.unp.ventas.pattern.observer.ComprobanteVentaObserver;
+import pe.edu.unp.ventas.pattern.observer.NotificacionVentaObserver;
+import pe.edu.unp.ventas.pattern.observer.VentaConfirmadaPublisher;
 import pe.edu.unp.ventas.repository.ProductoRepository;
 import pe.edu.unp.ventas.repository.UsuarioRepository;
 import pe.edu.unp.ventas.repository.VentaRepository;
@@ -55,13 +59,24 @@ public class VentasApplication extends Application {
         NotificacionVentaRepository notificacionRepository =
                 new SqliteNotificacionVentaRepository(database);
 
+        VentaConfirmadaPublisher ventaConfirmadaPublisher =
+                new VentaConfirmadaPublisher();
+
+        ventaConfirmadaPublisher.registrar(
+                new AuditoriaVentaObserver(auditoriaRepository)
+        );
+        ventaConfirmadaPublisher.registrar(
+                new ComprobanteVentaObserver(comprobanteRepository)
+        );
+        ventaConfirmadaPublisher.registrar(
+                new NotificacionVentaObserver(notificacionRepository)
+        );
+
         ventaService = new VentaService(
                 ventaRepository,
                 productoRepository,
                 descuentoFactory,
-                auditoriaRepository,
-                comprobanteRepository,
-                notificacionRepository
+                ventaConfirmadaPublisher
         );
         authService = new AuthService(usuarioRepository, passwordHasher);
 
@@ -86,7 +101,7 @@ public class VentasApplication extends Application {
         });
 
         VBox root = new VBox(10,
-                new Label("Sistema académico de ventas - v0.6"),
+                new Label("Sistema académico de ventas - v0.7"),
                 username,
                 password,
                 ingresar,
@@ -126,7 +141,7 @@ public class VentasApplication extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
 
-        stage.setTitle("Ventas - v0.6");
+        stage.setTitle("Ventas - v0.7");
         stage.setScene(new Scene(root, 1000, 650));
         stage.centerOnScreen();
     }
