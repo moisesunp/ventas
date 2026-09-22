@@ -24,7 +24,8 @@ public class VentaService {
         this.ventaRepository = ventaRepository;
         this.productoRepository = productoRepository;
         this.descuentoFactory = descuentoFactory;
-        this.ventaConfirmadaPublisher = ventaConfirmadaPublisher;
+        this.ventaConfirmadaPublisher =
+                ventaConfirmadaPublisher;
     }
 
     public Venta crearVenta(Usuario vendedor) {
@@ -32,72 +33,130 @@ public class VentaService {
         return new Venta(vendedor);
     }
 
-    public void agregarProducto(Venta venta, Long productoId, int cantidad) {
-        validarBorrador(venta);
+    public void agregarProducto(
+            Venta venta,
+            Long productoId,
+            int cantidad
+    ) {
+        venta.validarModificable();
 
-        Producto producto = productoRepository.buscarPorId(productoId)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));
+        Producto producto =
+                productoRepository
+                        .buscarPorId(productoId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException(
+                                        "Producto no encontrado"
+                                )
+                        );
 
         if (!producto.isActivo()) {
-            throw new IllegalStateException("El producto está inactivo");
+            throw new IllegalStateException(
+                    "El producto está inactivo"
+            );
         }
 
-        int cantidadActual = venta.getDetalles().stream()
-                .filter(d -> d.getProducto().getId().equals(productoId))
-                .mapToInt(DetalleVenta::getCantidad)
-                .sum();
+        int cantidadActual =
+                venta.getDetalles().stream()
+                        .filter(
+                                d -> d.getProducto()
+                                        .getId()
+                                        .equals(productoId)
+                        )
+                        .mapToInt(
+                                DetalleVenta::getCantidad
+                        )
+                        .sum();
 
-        if (cantidadActual + cantidad > producto.getStock()) {
-            throw new IllegalArgumentException("Stock insuficiente");
+        if (cantidadActual + cantidad
+                > producto.getStock()) {
+            throw new IllegalArgumentException(
+                    "Stock insuficiente"
+            );
         }
 
-        venta.agregarProducto(producto, cantidad);
+        venta.agregarProducto(
+                producto,
+                cantidad
+        );
+
         recalcularDescuento(venta);
     }
 
-    public void eliminarProducto(Venta venta, Long productoId) {
-        validarBorrador(venta);
+    public void eliminarProducto(
+            Venta venta,
+            Long productoId
+    ) {
+        venta.validarModificable();
         venta.eliminarProducto(productoId);
         recalcularDescuento(venta);
     }
 
-    public void aplicarDescuento(Venta venta, TipoDescuento tipo) {
-        validarBorrador(venta);
+    public void aplicarDescuento(
+            Venta venta,
+            TipoDescuento tipo
+    ) {
+        venta.validarModificable();
 
-        DescuentoStrategy estrategia = descuentoFactory.crear(tipo);
+        DescuentoStrategy estrategia =
+                descuentoFactory.crear(tipo);
+
         venta.aplicarDescuento(
                 tipo,
-                estrategia.calcular(venta.getSubtotal())
+                estrategia.calcular(
+                        venta.getSubtotal()
+                )
         );
     }
 
     public Venta confirmarVenta(Venta venta) {
-        validarVendedor(venta.getVendedor());
-        validarBorrador(venta);
+        validarVendedor(
+                venta.getVendedor()
+        );
 
-        if (venta.getDetalles().isEmpty()) {
-            throw new IllegalStateException("La venta debe contener al menos un producto");
-        }
+        venta.validarConfirmacion();
 
-        for (DetalleVenta detalle : venta.getDetalles()) {
-            Producto actual = productoRepository.buscarPorId(detalle.getProducto().getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));
+        for (DetalleVenta detalle
+                : venta.getDetalles()) {
+
+            Producto actual =
+                    productoRepository
+                            .buscarPorId(
+                                    detalle.getProducto()
+                                            .getId()
+                            )
+                            .orElseThrow(
+                                    () -> new IllegalArgumentException(
+                                            "Producto no encontrado"
+                                    )
+                            );
 
             if (!actual.isActivo()) {
-                throw new IllegalStateException("Producto inactivo: " + actual.getNombre());
+                throw new IllegalStateException(
+                        "Producto inactivo: "
+                                + actual.getNombre()
+                );
             }
 
-            if (actual.getStock() < detalle.getCantidad()) {
-                throw new IllegalStateException("Stock insuficiente: " + actual.getNombre());
+            if (actual.getStock()
+                    < detalle.getCantidad()) {
+                throw new IllegalStateException(
+                        "Stock insuficiente: "
+                                + actual.getNombre()
+                );
             }
         }
 
         recalcularDescuento(venta);
 
-        ventaRepository.guardarConfirmada(venta);
+        ventaRepository.guardarConfirmada(
+                venta
+        );
+
         venta.confirmar();
 
-        ventaConfirmadaPublisher.publicar(venta);
+        ventaConfirmadaPublisher.publicar(
+                venta
+        );
 
         return venta;
     }
@@ -105,96 +164,82 @@ public class VentaService {
     public Venta anularVenta(Long id) {
         Venta venta = buscarPorId(id);
 
-        if (venta.getEstado() == EstadoVenta.BORRADOR) {
-            throw new IllegalStateException(
-                    "Una venta en borrador todavía no puede anularse desde el historial"
-            );
-        } else if (venta.getEstado() == EstadoVenta.CONFIRMADA) {
-            ventaRepository.anularConfirmada(venta);
-            venta.anular();
-            return venta;
-        } else if (venta.getEstado() == EstadoVenta.ANULADA) {
-            throw new IllegalStateException(
-                    "La venta ya se encuentra anulada"
-            );
-        }
+        venta.validarAnulacion();
 
-        throw new IllegalStateException("Estado de venta no reconocido");
+        ventaRepository.anularConfirmada(
+                venta
+        );
+
+        venta.anular();
+
+        return venta;
     }
 
-    public String descripcionEstado(Venta venta) {
-        if (venta.getEstado() == EstadoVenta.BORRADOR) {
-            return "BORRADOR: puede modificarse y confirmarse.";
-        } else if (venta.getEstado() == EstadoVenta.CONFIRMADA) {
-            return "CONFIRMADA: ya no puede editarse, pero puede anularse.";
-        } else if (venta.getEstado() == EstadoVenta.ANULADA) {
-            return "ANULADA: es un estado final y no admite nuevas operaciones.";
-        }
-
-        throw new IllegalStateException("Estado de venta no reconocido");
+    public String descripcionEstado(
+            Venta venta
+    ) {
+        return venta.getDescripcionEstado();
     }
 
-    public List<String> accionesDisponibles(Venta venta) {
-        if (venta.getEstado() == EstadoVenta.BORRADOR) {
-            return List.of(
-                    "AGREGAR_PRODUCTO",
-                    "QUITAR_PRODUCTO",
-                    "APLICAR_DESCUENTO",
-                    "CONFIRMAR"
-            );
-        } else if (venta.getEstado() == EstadoVenta.CONFIRMADA) {
-            return List.of(
-                    "CONSULTAR",
-                    "ANULAR"
-            );
-        } else if (venta.getEstado() == EstadoVenta.ANULADA) {
-            return List.of(
-                    "CONSULTAR"
-            );
-        }
-
-        throw new IllegalStateException("Estado de venta no reconocido");
+    public List<String> accionesDisponibles(
+            Venta venta
+    ) {
+        return venta.getAccionesDisponibles();
     }
 
     public Venta buscarPorId(Long id) {
-        return ventaRepository.buscarPorId(id)
-                .orElseThrow(() -> new IllegalArgumentException("Venta no encontrada"));
+        return ventaRepository
+                .buscarPorId(id)
+                .orElseThrow(
+                        () -> new IllegalArgumentException(
+                                "Venta no encontrada"
+                        )
+                );
     }
 
     public List<Venta> listar() {
         return ventaRepository.listar();
     }
 
-    public List<Venta> listarPorVendedor(Long vendedorId) {
-        return ventaRepository.listarPorVendedor(vendedorId);
+    public List<Venta> listarPorVendedor(
+            Long vendedorId
+    ) {
+        return ventaRepository
+                .listarPorVendedor(
+                        vendedorId
+                );
     }
 
-    private void recalcularDescuento(Venta venta) {
+    private void recalcularDescuento(
+            Venta venta
+    ) {
         DescuentoStrategy estrategia =
-                descuentoFactory.crear(venta.getTipoDescuento());
+                descuentoFactory.crear(
+                        venta.getTipoDescuento()
+                );
 
         venta.aplicarDescuento(
                 venta.getTipoDescuento(),
-                estrategia.calcular(venta.getSubtotal())
+                estrategia.calcular(
+                        venta.getSubtotal()
+                )
         );
     }
 
-    private void validarVendedor(Usuario vendedor) {
-        if (vendedor == null || !vendedor.isActivo()) {
-            throw new IllegalStateException("El vendedor debe estar activo");
-        }
-
-        if (vendedor.getRol() != Rol.VENDEDOR) {
+    private void validarVendedor(
+            Usuario vendedor
+    ) {
+        if (vendedor == null
+                || !vendedor.isActivo()) {
             throw new IllegalStateException(
-                    "Solo un usuario con rol VENDEDOR puede registrar ventas"
+                    "El vendedor debe estar activo"
             );
         }
-    }
 
-    private void validarBorrador(Venta venta) {
-        if (venta == null || venta.getEstado() != EstadoVenta.BORRADOR) {
+        if (vendedor.getRol()
+                != Rol.VENDEDOR) {
             throw new IllegalStateException(
-                    "La venta debe estar en estado BORRADOR"
+                    "Solo un usuario con rol VENDEDOR puede registrar ventas"
             );
         }
     }
