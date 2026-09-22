@@ -16,6 +16,9 @@ import pe.edu.unp.ventas.repository.VentaRepository;
 import pe.edu.unp.ventas.repository.sqlite.SqliteProductoRepository;
 import pe.edu.unp.ventas.repository.sqlite.SqliteUsuarioRepository;
 import pe.edu.unp.ventas.repository.sqlite.SqliteVentaRepository;
+import pe.edu.unp.ventas.repository.sqlite.SqliteAuditoriaVentaRepository;
+import pe.edu.unp.ventas.repository.sqlite.SqliteComprobanteRepository;
+import pe.edu.unp.ventas.repository.sqlite.SqliteNotificacionVentaRepository;
 import pe.edu.unp.ventas.service.*;
 import pe.edu.unp.ventas.ui.ProductoPane;
 import pe.edu.unp.ventas.ui.UsuarioPane;
@@ -45,7 +48,21 @@ public class VentasApplication extends Application {
         usuarioService = new UsuarioService(usuarioRepository, passwordHasher);
         productoService = new ProductoService(productoRepository);
         DescuentoStrategyFactory descuentoFactory = new DescuentoStrategyFactory();
-        ventaService = new VentaService(ventaRepository, productoRepository, descuentoFactory);
+        AuditoriaVentaRepository auditoriaRepository =
+                new SqliteAuditoriaVentaRepository(database);
+        ComprobanteRepository comprobanteRepository =
+                new SqliteComprobanteRepository(database);
+        NotificacionVentaRepository notificacionRepository =
+                new SqliteNotificacionVentaRepository(database);
+
+        ventaService = new VentaService(
+                ventaRepository,
+                productoRepository,
+                descuentoFactory,
+                auditoriaRepository,
+                comprobanteRepository,
+                notificacionRepository
+        );
         authService = new AuthService(usuarioRepository, passwordHasher);
 
         new BootstrapService(usuarioRepository, usuarioService).crearAdministradorInicial();
@@ -69,7 +86,7 @@ public class VentasApplication extends Application {
         });
 
         VBox root = new VBox(10,
-                new Label("Sistema académico de ventas - v0.5"),
+                new Label("Sistema académico de ventas - v0.6"),
                 username,
                 password,
                 ingresar,
@@ -109,7 +126,7 @@ public class VentasApplication extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
 
-        stage.setTitle("Ventas - v0.5");
+        stage.setTitle("Ventas - v0.6");
         stage.setScene(new Scene(root, 1000, 650));
         stage.centerOnScreen();
     }
