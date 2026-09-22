@@ -105,13 +105,55 @@ public class VentaService {
     public Venta anularVenta(Long id) {
         Venta venta = buscarPorId(id);
 
-        if (venta.getEstado() != EstadoVenta.CONFIRMADA) {
-            throw new IllegalStateException("Solo una venta confirmada puede anularse");
+        if (venta.getEstado() == EstadoVenta.BORRADOR) {
+            throw new IllegalStateException(
+                    "Una venta en borrador todavía no puede anularse desde el historial"
+            );
+        } else if (venta.getEstado() == EstadoVenta.CONFIRMADA) {
+            ventaRepository.anularConfirmada(venta);
+            venta.anular();
+            return venta;
+        } else if (venta.getEstado() == EstadoVenta.ANULADA) {
+            throw new IllegalStateException(
+                    "La venta ya se encuentra anulada"
+            );
         }
 
-        ventaRepository.anularConfirmada(venta);
-        venta.anular();
-        return venta;
+        throw new IllegalStateException("Estado de venta no reconocido");
+    }
+
+    public String descripcionEstado(Venta venta) {
+        if (venta.getEstado() == EstadoVenta.BORRADOR) {
+            return "BORRADOR: puede modificarse y confirmarse.";
+        } else if (venta.getEstado() == EstadoVenta.CONFIRMADA) {
+            return "CONFIRMADA: ya no puede editarse, pero puede anularse.";
+        } else if (venta.getEstado() == EstadoVenta.ANULADA) {
+            return "ANULADA: es un estado final y no admite nuevas operaciones.";
+        }
+
+        throw new IllegalStateException("Estado de venta no reconocido");
+    }
+
+    public List<String> accionesDisponibles(Venta venta) {
+        if (venta.getEstado() == EstadoVenta.BORRADOR) {
+            return List.of(
+                    "AGREGAR_PRODUCTO",
+                    "QUITAR_PRODUCTO",
+                    "APLICAR_DESCUENTO",
+                    "CONFIRMAR"
+            );
+        } else if (venta.getEstado() == EstadoVenta.CONFIRMADA) {
+            return List.of(
+                    "CONSULTAR",
+                    "ANULAR"
+            );
+        } else if (venta.getEstado() == EstadoVenta.ANULADA) {
+            return List.of(
+                    "CONSULTAR"
+            );
+        }
+
+        throw new IllegalStateException("Estado de venta no reconocido");
     }
 
     public Venta buscarPorId(Long id) {
