@@ -91,3 +91,35 @@ CREATE INDEX IF NOT EXISTS idx_venta_estado ON venta(estado);
 CREATE INDEX IF NOT EXISTS idx_venta_vendedor_fecha ON venta(vendedor_id, fecha);
 CREATE INDEX IF NOT EXISTS idx_detalle_venta ON detalle_venta(venta_id);
 CREATE INDEX IF NOT EXISTS idx_detalle_producto ON detalle_venta(producto_id);
+
+
+CREATE TABLE IF NOT EXISTS auditoria_venta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id INTEGER NOT NULL,
+    evento TEXT NOT NULL,
+    fecha TEXT NOT NULL,
+    vendedor_id INTEGER NOT NULL,
+    FOREIGN KEY (venta_id) REFERENCES venta(id) ON DELETE CASCADE,
+    FOREIGN KEY (vendedor_id) REFERENCES usuario(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS comprobante_venta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id INTEGER NOT NULL UNIQUE,
+    numero TEXT NOT NULL UNIQUE,
+    fecha TEXT NOT NULL,
+    total_centimos INTEGER NOT NULL CHECK (total_centimos >= 0),
+    FOREIGN KEY (venta_id) REFERENCES venta(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notificacion_venta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id INTEGER NOT NULL,
+    mensaje TEXT NOT NULL,
+    fecha TEXT NOT NULL,
+    estado TEXT NOT NULL,
+    FOREIGN KEY (venta_id) REFERENCES venta(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_auditoria_venta ON auditoria_venta(venta_id);
+CREATE INDEX IF NOT EXISTS idx_notificacion_venta ON notificacion_venta(venta_id);
