@@ -20,70 +20,92 @@ Las versiones docentes se conservan en ramas estables para que puedan consultars
 | v0.3 | Descuentos con condicionales | [version/v0.3](https://github.com/moisesunp/ventas/tree/version/v0.3) | [Descargar v0.3](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.3.zip) |
 | v0.4 | Strategy para descuentos | [version/v0.4](https://github.com/moisesunp/ventas/tree/version/v0.4) | [Descargar v0.4](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.4.zip) |
 | v0.5 | Factory para creación de estrategias | [version/v0.5](https://github.com/moisesunp/ventas/tree/version/v0.5) | [Descargar v0.5](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.5.zip) |
-| v0.6 | Confirmación con múltiples consecuencias directas | [version/v0.6](https://github.com/moisesunp/ventas/tree/version/v0.6) | [Descargar v0.6](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.6.zip) |
+| v0.6 | Confirmación con consecuencias directas | [version/v0.6](https://github.com/moisesunp/ventas/tree/version/v0.6) | [Descargar v0.6](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.6.zip) |
+| v0.7 | Observer para venta confirmada | [version/v0.7](https://github.com/moisesunp/ventas/tree/version/v0.7) | [Descargar v0.7](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.7.zip) |
 
-## v0.6 — Problema previo a Observer
+## v0.7 — Observer
 
-Esta versión añade nuevas consecuencias a la confirmación de una venta, pero todavía **no utiliza Observer**.
+Esta versión refactoriza las consecuencias de una venta confirmada mediante el patrón **Observer**.
 
-### Qué ocurre al confirmar
+### Problema observado en v0.6
 
 ```text
 VentaService.confirmarVenta()
         │
-        ├── valida venta y stock
-        ├── recalcula descuento
-        ├── guarda venta
-        ├── confirma estado
         ├── registra auditoría
-        ├── genera comprobante interno
+        ├── genera comprobante
         └── registra notificación
 ```
 
-La venta sigue funcionando, pero `VentaService` empieza a conocer demasiadas consecuencias del mismo acontecimiento.
+`VentaService` conocía directamente todas las reacciones posteriores a una confirmación.
 
-### Nuevas responsabilidades
+### Solución en v0.7
 
-Se incorporan:
-
-- `AuditoriaVentaRepository`;
-- `ComprobanteRepository`;
-- `NotificacionVentaRepository`;
-- implementaciones SQLite para cada una;
-- tablas `auditoria_venta`, `comprobante_venta` y `notificacion_venta`.
-
-### Problema didáctico visible
-
-Cada nueva reacción a la confirmación obliga a modificar `VentaService.confirmarVenta()`.
-
-Por ejemplo, si mañana queremos añadir:
-
-```text
-actualizar puntos
-enviar correo
-registrar estadísticas
-informar al almacén
-generar reporte
-```
-
-el método seguirá creciendo.
-
-### Dependencias actuales
+Se incorpora un evento y un publicador:
 
 ```text
 VentaService
-   │
-   ├── VentaRepository
-   ├── ProductoRepository
-   ├── DescuentoStrategyFactory
-   ├── AuditoriaVentaRepository
-   ├── ComprobanteRepository
-   └── NotificacionVentaRepository
+     │
+     │ publicar(venta)
+     ▼
+VentaConfirmadaPublisher
+     │
+     ├── AuditoriaVentaObserver
+     ├── ComprobanteVentaObserver
+     └── NotificacionVentaObserver
 ```
 
-El problema ya no es el cálculo de descuentos, sino el acoplamiento entre el evento **venta confirmada** y todas sus consecuencias.
+Cada observador implementa el mismo contrato:
 
-Ese será el problema que resolveremos en **v0.7 con Observer**.
+```text
+VentaConfirmadaObserver
+        │
+        └── actualizar(VentaConfirmadaEvent)
+```
+
+### Qué mejora
+
+- `VentaService` ya no conoce las reacciones concretas;
+- cada observador tiene una responsabilidad específica;
+- agregar una nueva reacción no exige modificar `confirmarVenta()`;
+- el evento `VentaConfirmadaEvent` representa explícitamente el acontecimiento;
+- las reacciones quedan desacopladas entre sí.
+
+### Comparación didáctica
+
+#### v0.6
+
+```text
+VentaService
+   ├── Auditoría
+   ├── Comprobante
+   └── Notificación
+```
+
+#### v0.7
+
+```text
+VentaService
+      ↓
+VentaConfirmadaPublisher
+      ↓
+notifica observers
+      │
+      ├── Auditoría
+      ├── Comprobante
+      └── Notificación
+```
+
+Si mañana se agrega:
+
+```text
+PuntosClienteObserver
+EstadisticasObserver
+CorreoObserver
+AlmacenObserver
+```
+
+`VentaService.confirmarVenta()` no necesita conocerlos.
 
 ## Acceso inicial
 
@@ -105,8 +127,8 @@ mvn clean javafx:run
 - v0.3: descuentos con condicionales;
 - v0.4: Strategy;
 - v0.5: Factory;
-- **v0.6: confirmación con responsabilidades crecientes;**
-- v0.7: Observer;
+- v0.6: confirmación con responsabilidades crecientes;
+- **v0.7: Observer;**
 - v0.8: lógica creciente según estado;
 - v0.9: State;
 - v1.0: integración académica final.
