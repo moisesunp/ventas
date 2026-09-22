@@ -20,87 +20,70 @@ Las versiones docentes se conservan en ramas estables para que puedan consultars
 | v0.3 | Descuentos con condicionales | [version/v0.3](https://github.com/moisesunp/ventas/tree/version/v0.3) | [Descargar v0.3](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.3.zip) |
 | v0.4 | Strategy para descuentos | [version/v0.4](https://github.com/moisesunp/ventas/tree/version/v0.4) | [Descargar v0.4](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.4.zip) |
 | v0.5 | Factory para creación de estrategias | [version/v0.5](https://github.com/moisesunp/ventas/tree/version/v0.5) | [Descargar v0.5](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.5.zip) |
+| v0.6 | Confirmación con múltiples consecuencias directas | [version/v0.6](https://github.com/moisesunp/ventas/tree/version/v0.6) | [Descargar v0.6](https://github.com/moisesunp/ventas/archive/refs/heads/version/v0.6.zip) |
 
-## v0.5 — Factory
+## v0.6 — Problema previo a Observer
 
-Esta versión mantiene Strategy y añade una fábrica para centralizar la creación de las estrategias concretas de descuento.
+Esta versión añade nuevas consecuencias a la confirmación de una venta, pero todavía **no utiliza Observer**.
 
-### Problema observado en v0.4
+### Qué ocurre al confirmar
+
+```text
+VentaService.confirmarVenta()
+        │
+        ├── valida venta y stock
+        ├── recalcula descuento
+        ├── guarda venta
+        ├── confirma estado
+        ├── registra auditoría
+        ├── genera comprobante interno
+        └── registra notificación
+```
+
+La venta sigue funcionando, pero `VentaService` empieza a conocer demasiadas consecuencias del mismo acontecimiento.
+
+### Nuevas responsabilidades
+
+Se incorporan:
+
+- `AuditoriaVentaRepository`;
+- `ComprobanteRepository`;
+- `NotificacionVentaRepository`;
+- implementaciones SQLite para cada una;
+- tablas `auditoria_venta`, `comprobante_venta` y `notificacion_venta`.
+
+### Problema didáctico visible
+
+Cada nueva reacción a la confirmación obliga a modificar `VentaService.confirmarVenta()`.
+
+Por ejemplo, si mañana queremos añadir:
+
+```text
+actualizar puntos
+enviar correo
+registrar estadísticas
+informar al almacén
+generar reporte
+```
+
+el método seguirá creciendo.
+
+### Dependencias actuales
 
 ```text
 VentaService
    │
-   ├── new SinDescuentoStrategy()
-   ├── new ClienteFrecuenteStrategy()
-   ├── new PromocionStrategy()
-   ├── new EmpleadoStrategy()
-   └── new CampaniaEspecialStrategy()
+   ├── VentaRepository
+   ├── ProductoRepository
+   ├── DescuentoStrategyFactory
+   ├── AuditoriaVentaRepository
+   ├── ComprobanteRepository
+   └── NotificacionVentaRepository
 ```
 
-El algoritmo ya estaba encapsulado con Strategy, pero `VentaService` todavía conocía las clases concretas y decidía cuál instanciar.
+El problema ya no es el cálculo de descuentos, sino el acoplamiento entre el evento **venta confirmada** y todas sus consecuencias.
 
-### Solución en v0.5
-
-Se incorpora:
-
-```text
-DescuentoStrategyFactory
-          │
-          ├── SIN_DESCUENTO
-          ├── CLIENTE_FRECUENTE
-          ├── PROMOCION
-          ├── EMPLEADO
-          └── CAMPANIA_ESPECIAL
-          │
-          ▼
-   DescuentoStrategy
-```
-
-Ahora `VentaService` hace:
-
-```text
-TipoDescuento
-     ↓
-DescuentoStrategyFactory.crear(tipo)
-     ↓
-DescuentoStrategy
-     ↓
-calcular(subtotal)
-```
-
-### Qué mejora
-
-- `VentaService` ya no instancia estrategias concretas;
-- la decisión de creación queda centralizada;
-- Strategy sigue encapsulando el algoritmo;
-- Factory encapsula la creación;
-- las responsabilidades quedan más separadas.
-
-### Comparación didáctica
-
-#### v0.4
-
-```text
-VentaService
-   ↓
-if / else
-   ↓
-new EstrategiaConcreta()
-   ↓
-calcular()
-```
-
-#### v0.5
-
-```text
-VentaService
-   ↓
-Factory
-   ↓
-DescuentoStrategy
-   ↓
-calcular()
-```
+Ese será el problema que resolveremos en **v0.7 con Observer**.
 
 ## Acceso inicial
 
@@ -121,8 +104,8 @@ mvn clean javafx:run
 - v0.2: venta y detalle de venta;
 - v0.3: descuentos con condicionales;
 - v0.4: Strategy;
-- **v0.5: Factory;**
-- v0.6: confirmación con responsabilidades crecientes;
+- v0.5: Factory;
+- **v0.6: confirmación con responsabilidades crecientes;**
 - v0.7: Observer;
 - v0.8: lógica creciente según estado;
 - v0.9: State;
