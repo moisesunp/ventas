@@ -17,14 +17,11 @@ public class SqliteNotificacionVentaRepository implements NotificacionVentaRepos
     }
 
     @Override
-    public void registrarConfirmacion(
-            Venta venta,
-            String numeroComprobante
-    ) {
+    public void registrarConfirmacion(Venta venta) {
         String mensaje =
                 "Venta " + venta.getId()
-                        + " confirmada. Comprobante interno: "
-                        + numeroComprobante;
+                        + " confirmada por "
+                        + venta.getVendedor().getNombre();
 
         String sql = """
                 INSERT INTO notificacion_venta(
