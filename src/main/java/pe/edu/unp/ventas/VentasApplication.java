@@ -27,6 +27,7 @@ import pe.edu.unp.ventas.service.*;
 import pe.edu.unp.ventas.ui.ProductoPane;
 import pe.edu.unp.ventas.ui.UsuarioPane;
 import pe.edu.unp.ventas.ui.VentaPane;
+import pe.edu.unp.ventas.ui.HistorialVentaPane;
 
 public class VentasApplication extends Application {
     private AuthService authService;
@@ -101,7 +102,7 @@ public class VentasApplication extends Application {
         });
 
         VBox root = new VBox(10,
-                new Label("Sistema académico de ventas - v0.7"),
+                new Label("Sistema académico de ventas - v0.8"),
                 username,
                 password,
                 ingresar,
@@ -124,6 +125,7 @@ public class VentasApplication extends Application {
 
         if (usuario.getRol() == Rol.VENDEDOR) {
             tabs.getTabs().add(new Tab("Ventas", new VentaPane(ventaService, productoService, usuario)));
+            tabs.getTabs().add(new Tab("Historial", new HistorialVentaPane(ventaService, usuario)));
             tabs.getTabs().add(new Tab("Productos", new ProductoPane(productoService, false)));
         }
 
@@ -141,7 +143,7 @@ public class VentasApplication extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
 
-        stage.setTitle("Ventas - v0.7");
+        stage.setTitle("Ventas - v0.8");
         stage.setScene(new Scene(root, 1000, 650));
         stage.centerOnScreen();
     }
