@@ -99,34 +99,35 @@ public class Venta {
     public void modificarCantidad(Long productoId, int cantidad) {
         validarModificable();
         DetalleVenta detalle = buscarDetalle(productoId);
+
         if (detalle == null) {
             throw new IllegalArgumentException("El producto no pertenece a la venta");
         }
+
         detalle.cambiarCantidad(cantidad);
         validarDescuento();
     }
 
-    public void aplicarDescuento(TipoDescuento tipoDescuento, BigDecimal porcentaje) {
+    public void aplicarDescuento(TipoDescuento tipoDescuento, BigDecimal montoDescuento) {
         validarModificable();
         this.tipoDescuento = Objects.requireNonNull(tipoDescuento, "El tipo de descuento es obligatorio");
-        Objects.requireNonNull(porcentaje, "El porcentaje es obligatorio");
+        Objects.requireNonNull(montoDescuento, "El monto de descuento es obligatorio");
 
-        if (porcentaje.signum() < 0 || porcentaje.compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new IllegalArgumentException("El porcentaje debe estar entre 0 y 100");
+        if (montoDescuento.signum() < 0 || montoDescuento.compareTo(getSubtotal()) > 0) {
+            throw new IllegalArgumentException("El descuento no puede ser negativo ni superar el subtotal");
         }
 
-        descuento = getSubtotal()
-                .multiply(porcentaje)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-
+        descuento = montoDescuento.setScale(2, RoundingMode.HALF_UP);
         validarDescuento();
     }
 
     public void confirmar() {
         validarModificable();
+
         if (detalles.isEmpty()) {
             throw new IllegalStateException("La venta debe contener al menos un producto");
         }
+
         estado = EstadoVenta.CONFIRMADA;
     }
 
@@ -134,6 +135,7 @@ public class Venta {
         if (estado != EstadoVenta.CONFIRMADA) {
             throw new IllegalStateException("Solo una venta confirmada puede anularse");
         }
+
         estado = EstadoVenta.ANULADA;
     }
 
