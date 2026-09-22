@@ -14,6 +14,9 @@ import pe.edu.unp.ventas.pattern.observer.AuditoriaVentaObserver;
 import pe.edu.unp.ventas.pattern.observer.ComprobanteVentaObserver;
 import pe.edu.unp.ventas.pattern.observer.NotificacionVentaObserver;
 import pe.edu.unp.ventas.pattern.observer.VentaConfirmadaPublisher;
+import pe.edu.unp.ventas.repository.AuditoriaVentaRepository;
+import pe.edu.unp.ventas.repository.ComprobanteRepository;
+import pe.edu.unp.ventas.repository.NotificacionVentaRepository;
 import pe.edu.unp.ventas.repository.ProductoRepository;
 import pe.edu.unp.ventas.repository.UsuarioRepository;
 import pe.edu.unp.ventas.repository.VentaRepository;
@@ -102,7 +105,7 @@ public class VentasApplication extends Application {
         });
 
         VBox root = new VBox(10,
-                new Label("Sistema académico de ventas - v0.9"),
+                new Label("Sistema académico de ventas - v1.0"),
                 username,
                 password,
                 ingresar,
@@ -143,7 +146,7 @@ public class VentasApplication extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
 
-        stage.setTitle("Ventas - v0.9");
+        stage.setTitle("Ventas - v1.0");
         stage.setScene(new Scene(root, 1000, 650));
         stage.centerOnScreen();
     }
