@@ -3,8 +3,7 @@ package pe.edu.unp.ventas.service;
 import pe.edu.unp.ventas.model.*;
 import pe.edu.unp.ventas.pattern.factory.DescuentoStrategyFactory;
 import pe.edu.unp.ventas.pattern.strategy.DescuentoStrategy;
-import pe.edu.unp.ventas.repository.ProductoRepository;
-import pe.edu.unp.ventas.repository.VentaRepository;
+import pe.edu.unp.ventas.repository.*;
 
 import java.util.List;
 
@@ -12,15 +11,24 @@ public class VentaService {
     private final VentaRepository ventaRepository;
     private final ProductoRepository productoRepository;
     private final DescuentoStrategyFactory descuentoFactory;
+    private final AuditoriaVentaRepository auditoriaRepository;
+    private final ComprobanteRepository comprobanteRepository;
+    private final NotificacionVentaRepository notificacionRepository;
 
     public VentaService(
             VentaRepository ventaRepository,
             ProductoRepository productoRepository,
-            DescuentoStrategyFactory descuentoFactory
+            DescuentoStrategyFactory descuentoFactory,
+            AuditoriaVentaRepository auditoriaRepository,
+            ComprobanteRepository comprobanteRepository,
+            NotificacionVentaRepository notificacionRepository
     ) {
         this.ventaRepository = ventaRepository;
         this.productoRepository = productoRepository;
         this.descuentoFactory = descuentoFactory;
+        this.auditoriaRepository = auditoriaRepository;
+        this.comprobanteRepository = comprobanteRepository;
+        this.notificacionRepository = notificacionRepository;
     }
 
     public Venta crearVenta(Usuario vendedor) {
@@ -89,8 +97,20 @@ public class VentaService {
         }
 
         recalcularDescuento(venta);
+
         ventaRepository.guardarConfirmada(venta);
         venta.confirmar();
+
+        auditoriaRepository.registrarConfirmacion(venta);
+
+        String numeroComprobante =
+                comprobanteRepository.generarComprobanteInterno(venta);
+
+        notificacionRepository.registrarConfirmacion(
+                venta,
+                numeroComprobante
+        );
+
         return venta;
     }
 
