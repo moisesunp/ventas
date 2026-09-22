@@ -1,10 +1,10 @@
 package pe.edu.unp.ventas.service;
 
 import pe.edu.unp.ventas.model.*;
+import pe.edu.unp.ventas.pattern.strategy.*;
 import pe.edu.unp.ventas.repository.ProductoRepository;
 import pe.edu.unp.ventas.repository.VentaRepository;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 public class VentaService {
@@ -52,8 +52,9 @@ public class VentaService {
 
     public void aplicarDescuento(Venta venta, TipoDescuento tipo) {
         validarBorrador(venta);
-        BigDecimal porcentaje = obtenerPorcentajeDescuento(tipo);
-        venta.aplicarDescuento(tipo, porcentaje);
+
+        DescuentoStrategy estrategia = seleccionarEstrategia(tipo);
+        venta.aplicarDescuento(tipo, estrategia.calcular(venta.getSubtotal()));
     }
 
     public Venta confirmarVenta(Venta venta) {
@@ -109,21 +110,24 @@ public class VentaService {
     }
 
     private void recalcularDescuento(Venta venta) {
-        BigDecimal porcentaje = obtenerPorcentajeDescuento(venta.getTipoDescuento());
-        venta.aplicarDescuento(venta.getTipoDescuento(), porcentaje);
+        DescuentoStrategy estrategia = seleccionarEstrategia(venta.getTipoDescuento());
+        venta.aplicarDescuento(
+                venta.getTipoDescuento(),
+                estrategia.calcular(venta.getSubtotal())
+        );
     }
 
-    private BigDecimal obtenerPorcentajeDescuento(TipoDescuento tipo) {
+    private DescuentoStrategy seleccionarEstrategia(TipoDescuento tipo) {
         if (tipo == TipoDescuento.SIN_DESCUENTO) {
-            return BigDecimal.ZERO;
+            return new SinDescuentoStrategy();
         } else if (tipo == TipoDescuento.CLIENTE_FRECUENTE) {
-            return new BigDecimal("5");
+            return new ClienteFrecuenteStrategy();
         } else if (tipo == TipoDescuento.PROMOCION) {
-            return new BigDecimal("10");
+            return new PromocionStrategy();
         } else if (tipo == TipoDescuento.EMPLEADO) {
-            return new BigDecimal("15");
+            return new EmpleadoStrategy();
         } else if (tipo == TipoDescuento.CAMPANIA_ESPECIAL) {
-            return new BigDecimal("20");
+            return new CampaniaEspecialStrategy();
         } else {
             throw new IllegalArgumentException("Tipo de descuento no reconocido");
         }
