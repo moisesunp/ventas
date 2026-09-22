@@ -1,7 +1,8 @@
 package pe.edu.unp.ventas.service;
 
 import pe.edu.unp.ventas.model.*;
-import pe.edu.unp.ventas.pattern.strategy.*;
+import pe.edu.unp.ventas.pattern.factory.DescuentoStrategyFactory;
+import pe.edu.unp.ventas.pattern.strategy.DescuentoStrategy;
 import pe.edu.unp.ventas.repository.ProductoRepository;
 import pe.edu.unp.ventas.repository.VentaRepository;
 
@@ -10,10 +11,16 @@ import java.util.List;
 public class VentaService {
     private final VentaRepository ventaRepository;
     private final ProductoRepository productoRepository;
+    private final DescuentoStrategyFactory descuentoFactory;
 
-    public VentaService(VentaRepository ventaRepository, ProductoRepository productoRepository) {
+    public VentaService(
+            VentaRepository ventaRepository,
+            ProductoRepository productoRepository,
+            DescuentoStrategyFactory descuentoFactory
+    ) {
         this.ventaRepository = ventaRepository;
         this.productoRepository = productoRepository;
+        this.descuentoFactory = descuentoFactory;
     }
 
     public Venta crearVenta(Usuario vendedor) {
@@ -53,8 +60,11 @@ public class VentaService {
     public void aplicarDescuento(Venta venta, TipoDescuento tipo) {
         validarBorrador(venta);
 
-        DescuentoStrategy estrategia = seleccionarEstrategia(tipo);
-        venta.aplicarDescuento(tipo, estrategia.calcular(venta.getSubtotal()));
+        DescuentoStrategy estrategia = descuentoFactory.crear(tipo);
+        venta.aplicarDescuento(
+                tipo,
+                estrategia.calcular(venta.getSubtotal())
+        );
     }
 
     public Venta confirmarVenta(Venta venta) {
@@ -110,27 +120,13 @@ public class VentaService {
     }
 
     private void recalcularDescuento(Venta venta) {
-        DescuentoStrategy estrategia = seleccionarEstrategia(venta.getTipoDescuento());
+        DescuentoStrategy estrategia =
+                descuentoFactory.crear(venta.getTipoDescuento());
+
         venta.aplicarDescuento(
                 venta.getTipoDescuento(),
                 estrategia.calcular(venta.getSubtotal())
         );
-    }
-
-    private DescuentoStrategy seleccionarEstrategia(TipoDescuento tipo) {
-        if (tipo == TipoDescuento.SIN_DESCUENTO) {
-            return new SinDescuentoStrategy();
-        } else if (tipo == TipoDescuento.CLIENTE_FRECUENTE) {
-            return new ClienteFrecuenteStrategy();
-        } else if (tipo == TipoDescuento.PROMOCION) {
-            return new PromocionStrategy();
-        } else if (tipo == TipoDescuento.EMPLEADO) {
-            return new EmpleadoStrategy();
-        } else if (tipo == TipoDescuento.CAMPANIA_ESPECIAL) {
-            return new CampaniaEspecialStrategy();
-        } else {
-            throw new IllegalArgumentException("Tipo de descuento no reconocido");
-        }
     }
 
     private void validarVendedor(Usuario vendedor) {
@@ -139,13 +135,17 @@ public class VentaService {
         }
 
         if (vendedor.getRol() != Rol.VENDEDOR) {
-            throw new IllegalStateException("Solo un usuario con rol VENDEDOR puede registrar ventas");
+            throw new IllegalStateException(
+                    "Solo un usuario con rol VENDEDOR puede registrar ventas"
+            );
         }
     }
 
     private void validarBorrador(Venta venta) {
         if (venta == null || venta.getEstado() != EstadoVenta.BORRADOR) {
-            throw new IllegalStateException("La venta debe estar en estado BORRADOR");
+            throw new IllegalStateException(
+                    "La venta debe estar en estado BORRADOR"
+            );
         }
     }
 }
