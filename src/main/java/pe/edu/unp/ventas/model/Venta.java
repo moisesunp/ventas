@@ -1,5 +1,8 @@
 package pe.edu.unp.ventas.model;
 
+import pe.edu.unp.ventas.pattern.state.VentaState;
+import pe.edu.unp.ventas.pattern.state.VentaStateFactory;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -15,7 +18,7 @@ public class Venta {
     private final List<DetalleVenta> detalles;
     private TipoDescuento tipoDescuento;
     private BigDecimal descuento;
-    private EstadoVenta estado;
+    private VentaState estado;
 
     public Venta(Usuario vendedor) {
         this(
@@ -29,23 +32,57 @@ public class Venta {
         );
     }
 
-    public Venta(Long id, LocalDateTime fecha, Usuario vendedor, List<DetalleVenta> detalles,
-                 TipoDescuento tipoDescuento, BigDecimal descuento, EstadoVenta estado) {
+    public Venta(
+            Long id,
+            LocalDateTime fecha,
+            Usuario vendedor,
+            List<DetalleVenta> detalles,
+            TipoDescuento tipoDescuento,
+            BigDecimal descuento,
+            EstadoVenta estado
+    ) {
         this.id = id;
-        this.fecha = Objects.requireNonNull(fecha, "La fecha es obligatoria");
-        this.vendedor = Objects.requireNonNull(vendedor, "El vendedor es obligatorio");
-        this.detalles = new ArrayList<>(Objects.requireNonNull(detalles, "Los detalles son obligatorios"));
-        this.tipoDescuento = Objects.requireNonNull(tipoDescuento, "El tipo de descuento es obligatorio");
+        this.fecha = Objects.requireNonNull(
+                fecha,
+                "La fecha es obligatoria"
+        );
+        this.vendedor = Objects.requireNonNull(
+                vendedor,
+                "El vendedor es obligatorio"
+        );
+        this.detalles = new ArrayList<>(
+                Objects.requireNonNull(
+                        detalles,
+                        "Los detalles son obligatorios"
+                )
+        );
+        this.tipoDescuento = Objects.requireNonNull(
+                tipoDescuento,
+                "El tipo de descuento es obligatorio"
+        );
         this.descuento = normalizarMonto(descuento);
-        this.estado = Objects.requireNonNull(estado, "El estado es obligatorio");
+        this.estado = VentaStateFactory.desde(estado);
         validarDescuento();
     }
 
     public Long getId() { return id; }
     public LocalDateTime getFecha() { return fecha; }
     public Usuario getVendedor() { return vendedor; }
-    public List<DetalleVenta> getDetalles() { return Collections.unmodifiableList(detalles); }
-    public TipoDescuento getTipoDescuento() { return tipoDescuento; }
+    public List<DetalleVenta> getDetalles() {
+        return Collections.unmodifiableList(detalles);
+    }
+    public TipoDescuento getTipoDescuento() {
+        return tipoDescuento;
+    }
+    public EstadoVenta getEstado() {
+        return estado.getTipo();
+    }
+    public String getDescripcionEstado() {
+        return estado.descripcion();
+    }
+    public List<String> getAccionesDisponibles() {
+        return estado.accionesDisponibles();
+    }
 
     public BigDecimal getSubtotal() {
         return detalles.stream()
@@ -54,112 +91,193 @@ public class Venta {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    public BigDecimal getDescuento() { return descuento; }
-
-    public BigDecimal getTotal() {
-        return getSubtotal().subtract(descuento).setScale(2, RoundingMode.HALF_UP);
+    public BigDecimal getDescuento() {
+        return descuento;
     }
 
-    public EstadoVenta getEstado() { return estado; }
+    public BigDecimal getTotal() {
+        return getSubtotal()
+                .subtract(descuento)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
 
     public void asignarId(Long id) {
         if (this.id != null) {
-            throw new IllegalStateException("La venta ya tiene un id asignado");
+            throw new IllegalStateException(
+                    "La venta ya tiene un id asignado"
+            );
         }
         this.id = Objects.requireNonNull(id);
     }
 
-    public void agregarProducto(Producto producto, int cantidad) {
-        validarModificable();
-        Objects.requireNonNull(producto, "El producto es obligatorio");
+    public void cambiarEstado(VentaState nuevoEstado) {
+        this.estado = Objects.requireNonNull(
+                nuevoEstado,
+                "El nuevo estado es obligatorio"
+        );
+    }
 
-        DetalleVenta existente = buscarDetalle(producto.getId());
+    public void validarModificable() {
+        estado.validarModificable();
+    }
+
+    public void validarConfirmacion() {
+        estado.validarConfirmacion(this);
+    }
+
+    public void validarAnulacion() {
+        estado.validarAnulacion();
+    }
+
+    public void agregarProducto(
+            Producto producto,
+            int cantidad
+    ) {
+        estado.validarModificable();
+
+        Objects.requireNonNull(
+                producto,
+                "El producto es obligatorio"
+        );
+
+        DetalleVenta existente =
+                buscarDetalle(producto.getId());
+
         if (existente == null) {
-            detalles.add(new DetalleVenta(producto, cantidad));
+            detalles.add(
+                    new DetalleVenta(
+                            producto,
+                            cantidad
+                    )
+            );
         } else {
             existente.aumentarCantidad(cantidad);
         }
 
         if (descuento.compareTo(getSubtotal()) > 0) {
-            tipoDescuento = TipoDescuento.SIN_DESCUENTO;
-            descuento = BigDecimal.ZERO.setScale(2);
+            tipoDescuento =
+                    TipoDescuento.SIN_DESCUENTO;
+            descuento =
+                    BigDecimal.ZERO.setScale(2);
         }
     }
 
     public void eliminarProducto(Long productoId) {
-        validarModificable();
-        detalles.removeIf(d -> Objects.equals(d.getProducto().getId(), productoId));
+        estado.validarModificable();
+
+        detalles.removeIf(
+                d -> Objects.equals(
+                        d.getProducto().getId(),
+                        productoId
+                )
+        );
 
         if (descuento.compareTo(getSubtotal()) > 0) {
-            tipoDescuento = TipoDescuento.SIN_DESCUENTO;
-            descuento = BigDecimal.ZERO.setScale(2);
+            tipoDescuento =
+                    TipoDescuento.SIN_DESCUENTO;
+            descuento =
+                    BigDecimal.ZERO.setScale(2);
         }
     }
 
-    public void modificarCantidad(Long productoId, int cantidad) {
-        validarModificable();
-        DetalleVenta detalle = buscarDetalle(productoId);
+    public void modificarCantidad(
+            Long productoId,
+            int cantidad
+    ) {
+        estado.validarModificable();
+
+        DetalleVenta detalle =
+                buscarDetalle(productoId);
 
         if (detalle == null) {
-            throw new IllegalArgumentException("El producto no pertenece a la venta");
+            throw new IllegalArgumentException(
+                    "El producto no pertenece a la venta"
+            );
         }
 
         detalle.cambiarCantidad(cantidad);
         validarDescuento();
     }
 
-    public void aplicarDescuento(TipoDescuento tipoDescuento, BigDecimal montoDescuento) {
-        validarModificable();
-        this.tipoDescuento = Objects.requireNonNull(tipoDescuento, "El tipo de descuento es obligatorio");
-        Objects.requireNonNull(montoDescuento, "El monto de descuento es obligatorio");
+    public void aplicarDescuento(
+            TipoDescuento tipoDescuento,
+            BigDecimal montoDescuento
+    ) {
+        estado.validarModificable();
 
-        if (montoDescuento.signum() < 0 || montoDescuento.compareTo(getSubtotal()) > 0) {
-            throw new IllegalArgumentException("El descuento no puede ser negativo ni superar el subtotal");
+        this.tipoDescuento =
+                Objects.requireNonNull(
+                        tipoDescuento,
+                        "El tipo de descuento es obligatorio"
+                );
+
+        Objects.requireNonNull(
+                montoDescuento,
+                "El monto de descuento es obligatorio"
+        );
+
+        if (montoDescuento.signum() < 0
+                || montoDescuento.compareTo(
+                        getSubtotal()
+                ) > 0) {
+            throw new IllegalArgumentException(
+                    "El descuento no puede ser negativo ni superar el subtotal"
+            );
         }
 
-        descuento = montoDescuento.setScale(2, RoundingMode.HALF_UP);
+        descuento =
+                montoDescuento.setScale(
+                        2,
+                        RoundingMode.HALF_UP
+                );
+
         validarDescuento();
     }
 
     public void confirmar() {
-        validarModificable();
-
-        if (detalles.isEmpty()) {
-            throw new IllegalStateException("La venta debe contener al menos un producto");
-        }
-
-        estado = EstadoVenta.CONFIRMADA;
+        estado.confirmar(this);
     }
 
     public void anular() {
-        if (estado != EstadoVenta.CONFIRMADA) {
-            throw new IllegalStateException("Solo una venta confirmada puede anularse");
-        }
-
-        estado = EstadoVenta.ANULADA;
+        estado.anular(this);
     }
 
-    private DetalleVenta buscarDetalle(Long productoId) {
+    private DetalleVenta buscarDetalle(
+            Long productoId
+    ) {
         return detalles.stream()
-                .filter(d -> Objects.equals(d.getProducto().getId(), productoId))
+                .filter(
+                        d -> Objects.equals(
+                                d.getProducto().getId(),
+                                productoId
+                        )
+                )
                 .findFirst()
                 .orElse(null);
     }
 
-    private void validarModificable() {
-        if (estado != EstadoVenta.BORRADOR) {
-            throw new IllegalStateException("Solo una venta en borrador puede modificarse");
-        }
-    }
-
     private void validarDescuento() {
-        if (descuento.signum() < 0 || descuento.compareTo(getSubtotal()) > 0) {
-            throw new IllegalArgumentException("El descuento no puede ser negativo ni superar el subtotal");
+        if (descuento.signum() < 0
+                || descuento.compareTo(
+                        getSubtotal()
+                ) > 0) {
+            throw new IllegalArgumentException(
+                    "El descuento no puede ser negativo ni superar el subtotal"
+            );
         }
     }
 
-    private static BigDecimal normalizarMonto(BigDecimal monto) {
-        Objects.requireNonNull(monto, "El monto es obligatorio");
-        return monto.setScale(2, RoundingMode.HALF_UP);
+    private static BigDecimal normalizarMonto(
+            BigDecimal monto
+    ) {
+        Objects.requireNonNull(
+                monto,
+                "El monto es obligatorio"
+        );
+
+        return monto.setScale(
+                2,
+                RoundingMode.HALF_UP
+        );
     }
 }
