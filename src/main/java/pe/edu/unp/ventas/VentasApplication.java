@@ -102,7 +102,7 @@ public class VentasApplication extends Application {
         });
 
         VBox root = new VBox(10,
-                new Label("Sistema académico de ventas - v0.8"),
+                new Label("Sistema académico de ventas - v0.9"),
                 username,
                 password,
                 ingresar,
@@ -143,7 +143,7 @@ public class VentasApplication extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(tabs, javafx.scene.layout.Priority.ALWAYS);
 
-        stage.setTitle("Ventas - v0.8");
+        stage.setTitle("Ventas - v0.9");
         stage.setScene(new Scene(root, 1000, 650));
         stage.centerOnScreen();
     }
